@@ -130,7 +130,6 @@ std::pair<std::vector<std::unordered_set<int>>, std::vector<std::unordered_set<i
 		for (auto & keyValue : factsPerFAMInstance[gID]){
 			const std::unordered_set<int> & facts = keyValue.second;
 
-			DEBUG(
 				const std::vector<int> & free_variable_assignment = keyValue.first;
 				std::cout << "Mutex Group " << gID << " Free vars:";
 				for (size_t v = 0; v < groups[gID].free_vars.size(); v++){
@@ -140,17 +139,16 @@ std::pair<std::vector<std::unordered_set<int>>, std::vector<std::unordered_set<i
 					std::cout << " = " <<  domain.constants[free_variable_assignment[v]];
 				}
 				std::cout << " -> " << keyValue.second.size() << std::endl;
-				);
 
 			if (mutex_groups_set.count(facts)){
-				DEBUG(std::cout << "Duplicate FAM mutex:";
+				std::cout << "Duplicate FAM mutex:";
 						for (int m : facts) std::cout << " " << m;
-						std::cout << std::endl);
+						std::cout << std::endl;
 
 			} else {
-				DEBUG(std::cout << "Insert (FAM):";
+				std::cout << "Insert (FAM):";
 						for (int m : facts) std::cout << " " << m;
-						std::cout << std::endl);
+						std::cout << std::endl;
 				mutex_groups_set.insert(facts);
 			}
 		}

@@ -19,7 +19,16 @@ struct FAMVariable{
 
 struct FAMGroup{
 	std::vector<FAMVariable> vars;
+	// int sort; -> index in sort array of domain
+    // bool isCounted; -> all instances of a certain variable are in the group
+    // free -> (aka not counted) -> transporter
+
 	std::vector<FAMGroupLiteral> literals;
+	// 	int predicateNo;
+    //	std::vector<int> args; // the id of the arguments
+    //                         if (!isConst) -> index from "vars" array
+    //                         else -> constant index from domain
+    //	std::vector<bool> isConstant; // if true, the id is a constant, else variable
 
 	std::vector<int> counted_vars;
 	std::vector<int> free_vars;

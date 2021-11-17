@@ -9,14 +9,80 @@
 #include "FAMmutexes.h"
 #include "conditional_effects.h"
 #include "duplicate.h"
+//#include "LDTG.h"
+#include "FamCutLmFactory.h"
 
+using namespace std;
 
 void run_grounding (const Domain & domain, const Problem & problem, std::ostream & dout, std::ostream & pout, grounding_configuration & config){
 
-  	std::vector<FAMGroup> famGroups;	
-	if (config.computeInvariants){
-		famGroups = compute_FAM_mutexes(domain,problem,config);
-	}
+  	std::vector<FAMGroup> famGroups;
+	if (config.computeInvariants) {
+        for (int i = 0; i < domain.tasks.size(); i++) {
+            cout << "(" << domain.tasks[i].name;
+            for (int j = 0; j < domain.tasks[i].variableSorts.size(); j++) {
+                int s = domain.tasks[i].variableSorts[j];
+                cout << " v" << j << " - " << domain.sorts[s].name;
+            }
+            cout << ")" << endl << ":preconditions" << endl;
+            for (int j = 0; j < domain.tasks[i].preconditions.size(); j++) {
+                int p = domain.tasks[i].preconditions[j].predicateNo;
+                cout << "   (" << domain.predicates[p].name;
+                for (int k = 0; k < domain.tasks[i].preconditions[j].arguments.size(); k++) {
+                    cout << " v" <<  domain.tasks[i].preconditions[j].arguments[k];
+                }
+                cout << ")" << endl;
+            }
+            cout << ":effects" << endl;
+            for (int j = 0; j < domain.tasks[i].effectsAdd.size(); j++) {
+                int p = domain.tasks[i].effectsAdd[j].predicateNo;
+                cout << "   (" << domain.predicates[p].name;
+                for (int k = 0; k < domain.tasks[i].effectsAdd[j].arguments.size(); k++) {
+                    cout << " v" <<  domain.tasks[i].effectsAdd[j].arguments[k];
+                }
+                cout << ")" << endl;
+            }
+            for (int j = 0; j < domain.tasks[i].effectsDel.size(); j++) {
+                int p = domain.tasks[i].effectsDel[j].predicateNo;
+                cout << "   (not (" << domain.predicates[p].name;
+                for (int k = 0; k < domain.tasks[i].effectsDel[j].arguments.size(); k++) {
+                    cout << " v" <<  domain.tasks[i].effectsDel[j].arguments[k];
+                }
+                cout << "))" << endl;
+            }
+            //cout << "conditional effects " << domain.tasks[i].conditionalAdd.size() << " " << domain.tasks[i].conditionalDel.size() << endl;
+            cout << endl;
+        }
+
+        cout << endl << "s0:" << endl;
+        for (int i = 0; i < problem.init.size(); i++) {
+            int pred = problem.init[i].predicateNo;
+            cout << "- (" << domain.predicates[pred].name;
+            for (int j = 0; j < problem.init[i].arguments.size(); j++) {
+                int arg = problem.init[i].arguments[j];
+                cout << " " << domain.constants[arg];
+            }
+            cout << ")" << endl;
+        }
+
+        cout << endl << "Goals:" << endl;
+        for (int i = 0; i < problem.goal.size(); i++) {
+            int pred = problem.goal[i].predicateNo;
+            cout << "- (" << domain.predicates[pred].name;
+            for (int j = 0; j < problem.goal[i].arguments.size(); j++) {
+                int arg = problem.goal[i].arguments[j];
+                cout << " " << domain.constants[arg];
+            }
+            cout << ")" << endl;
+        }
+
+
+        famGroups = compute_FAM_mutexes(domain, problem, config);
+        FamCutLmFactory *lms = new FamCutLmFactory(domain, problem, famGroups);
+        lms->findGoalMatches();
+        lms->generateLMs();
+    }
+    exit(0);
 
 	// if the instance contains conditional effects we have to compile them into additional primitive actions
 	// for this, we need to be able to write to the domain
