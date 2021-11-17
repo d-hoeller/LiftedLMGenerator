@@ -2,13 +2,13 @@
 // Created by dh on 12.11.21.
 //
 
-#ifndef SRC_DTGHELPER_H
-#define SRC_DTGHELPER_H
+#ifndef SRC_PIHELPER_H
+#define SRC_PIHELPER_H
 
-#include "DTGnode.h"
+#include "PINode.h"
 
-struct DTGnodeHasher {
-    size_t operator()(const DTGnode * p) const {
+struct PINodeHasher {
+    size_t operator()(const PINode * p) const {
         size_t res = hash<int>()(p->schemaIndex);
         for (int i: p->consts) {
             res = (res << 1);
@@ -19,8 +19,8 @@ struct DTGnodeHasher {
     }
 };
 
-struct DTGnodeComparator {
-    bool operator()(const DTGnode* obj1, const DTGnode* obj2) const {
+struct PINodeComparator {
+    bool operator()(const PINode* obj1, const PINode* obj2) const {
         if (obj1->schemaIndex != obj2->schemaIndex)
             return false;
         if (obj1->consts.size() != obj2->consts.size())
@@ -33,4 +33,4 @@ struct DTGnodeComparator {
     }
 };
 
-#endif //SRC_DTGHELPER_H
+#endif //SRC_PIHELPER_H

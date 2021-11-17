@@ -8,9 +8,9 @@
 #include <fstream>
 #include <map>
 #include <cassert>
-#include "DTGnode.h"
-#include "DTGraph.h"
-#include "DTarc.h"
+#include "PINode.h"
+#include "PIGraph.h"
+#include "PIArc.h"
 
 FamCutLmFactory::FamCutLmFactory(Domain d, Problem p, vector<FAMGroup> fg) {
     this->domain = d;
@@ -231,11 +231,11 @@ void FamCutLmFactory::generateLMs(int ig) {
     // do two things:
     // - convert initial state to a data structure supporting a contains test
     // - get starting point of that particular "free variable"
-    DTGraph *s0 = new DTGraph;
-    vector<DTGnode *> sameFAMNodes;
+    PIGraph *s0 = new PIGraph;
+    vector<PINode *> sameFAMNodes;
     for (int i = 0; i < problem.init.size(); i++) {
         Fact f = problem.init[i];
-        DTGnode *n = new DTGnode;
+        PINode *n = new PINode;
         n->schemaIndex = f.predicateNo;
         for (int j = 0; j < f.arguments.size(); j++) {
             n->consts.push_back(f.arguments[j]);
@@ -269,12 +269,12 @@ void FamCutLmFactory::generateLMs(int ig) {
         exit(-17);
     }
 
-//    unordered_set<DTGnode *, DTGnodeHasher, DTGnodeComparator> N;
-    DTGraph graph;
-    auto *N_last = new vector<DTGnode *>;
-    auto *N_this = new vector<DTGnode *>;
+//    unordered_set<PINode *, PINodeHasher, PINodeComparator> N;
+    PIGraph graph;
+    auto *N_last = new vector<PINode *>;
+    auto *N_this = new vector<PINode *>;
 
-    graph.insertNode(sameFAMNodes[0]);
+    graph.addNode(sameFAMNodes[0]);
     N_last->push_back(sameFAMNodes[0]);
 
     bool groundFAMVars = false;
@@ -300,7 +300,7 @@ void FamCutLmFactory::generateLMs(int ig) {
                 cout << "- action: " << domain.tasks[arc->action].name << endl;
                 int a = arc->action;
                 int numVars = domain.tasks[a].variableSorts.size();
-                DTGnode *partInstAction = new DTGnode;
+                PINode *partInstAction = new PINode;
                 for (int i = 0; i < numVars; i++) {
                     partInstAction->consts.push_back(-1);
                 }
@@ -325,18 +325,18 @@ void FamCutLmFactory::generateLMs(int ig) {
                     cout << ")" << endl;
                     // determine bindings by static precondition
 //                    for (int inv: arc->staticPrecs) {
-//                        DTGnode *partInstPrec = new DTGnode;
+//                        PINode *partInstPrec = new PINode;
 //                        auto precSchema = domain.tasks[a].preconditions[inv];
 //                        for (int i = 0; i < precSchema.arguments.size(); i++) {
 //                            int var = precSchema.arguments[i];
-//                            partInstPrec->consts.push_back(partInstAction->consts[var]);
+//                            partInstPrec->consts.push_back(partInstantiation->consts[var]);
 //                        }
 //                        StaticS0Def* s0Def = getStaticS0Def(precSchema.predicateNo);
 //                        sortS0Def(partInstPrec, s0Def);
 //                    }
                     // now we have a partially instantiated action, we need to get the effect
 
-                    vector<DTGnode *> *actionsToGround = new vector<DTGnode *>;
+                    vector<PINode *> *actionsToGround = new vector<PINode *>;
                     actionsToGround->push_back(partInstAction);
 
                     if (groundFAMVars) {
@@ -353,25 +353,25 @@ void FamCutLmFactory::generateLMs(int ig) {
                             }
                         }
 
-                        vector<DTGnode *> *actionsToGround2 = new vector<DTGnode *>;
+                        vector<PINode *> *actionsToGround2 = new vector<PINode *>;
                         for (int var: varsToGround) {
-                            for (DTGnode *action: *actionsToGround) {
+                            for (PINode *action: *actionsToGround) {
                                 int sort = domain.tasks[a].variableSorts[var];
                                 for (int obj: domain.sorts[sort].members) {
-                                    DTGnode *copy = new DTGnode(action);
+                                    PINode *copy = new PINode(action);
                                     copy->consts[var] = obj;
                                     actionsToGround2->push_back(copy);
                                 }
                                 //delete action;
                             }
                             actionsToGround->clear();
-                            vector<DTGnode *> *temp = actionsToGround2;
+                            vector<PINode *> *temp = actionsToGround2;
                             actionsToGround2 = actionsToGround;
                             actionsToGround = temp;
                         }
                     }
-                    for (DTGnode *action: *actionsToGround) {
-                        DTGnode *partInstEffect = new DTGnode;
+                    for (PINode *action: *actionsToGround) {
+                        PINode *partInstEffect = new PINode;
                         auto eff = domain.tasks[a].effectsAdd[arc->add];
                         partInstEffect->schemaIndex = eff.predicateNo;
                         for (int l = 0; l < eff.arguments.size(); l++) {
@@ -381,15 +381,15 @@ void FamCutLmFactory::generateLMs(int ig) {
                         auto iter = graph.N.find(partInstEffect);
                         int to;
                         if (iter == graph.N.end()) {
-                            graph.insertNode(partInstEffect);
-                            to = partInstEffect->id;
+                            graph.addNode(partInstEffect);
+                            to = partInstEffect->nodeID;
                             N_this->push_back(partInstEffect);
                         } else {
-                            to = (*iter)->id;
+                            to = (*iter)->nodeID;
                         }
 
                         // add arcs
-                        graph.addArc(n->id, to, action);
+                        graph.addArc(n->nodeID, to, action);
                         cout << "  -> (" << domain.predicates[partInstEffect->schemaIndex].name;
                         for (int i = 0; i < partInstEffect->consts.size(); i++) {
                             int obj = partInstEffect->consts[i];
@@ -421,36 +421,37 @@ void FamCutLmFactory::generateLMs(int ig) {
 
     graph.showDot(domain);
 
-    DTGnode *goalNode = new DTGnode();
+    PINode *goalNode = new PINode();
     goalNode->schemaIndex = fgoal.predicateNo;
     for (int k = 0; k < fgoal.arguments.size(); k++) {
         goalNode->consts.push_back(fgoal.arguments[k]);
     }
 
     set<int> goalNodes;
-    for (DTGnode *n: graph.N) {
+    for (PINode *n: graph.N) {
         if (n->abstractionOf(goalNode)) {
-            goalNodes.insert(n->id);
-            cout << "goal id " << n->id << endl;
+            goalNodes.insert(n->nodeID);
+            cout << "goal id " << n->nodeID << endl;
         }
     }
     cout << "Goal nodes: " << goalNodes.size() << endl;
 
     // find fact landmarks
     set<int> from;
-    from.insert(sameFAMNodes[0]->id);
-    cout << "init id: " << sameFAMNodes[0]->id << endl;
+    from.insert(sameFAMNodes[0]->nodeID);
+    cout << "init id: " << sameFAMNodes[0]->nodeID << endl;
     graph.deactivatedNodes.clear();
     if (graph.reachable(from, goalNodes)) {
         cout << "reachable" << endl;
-        for (auto n: graph.iToN) {
-            if ((from.find(n.first) != from.end()) || (goalNodes.find(n.first) != goalNodes.end())) {
+        for (auto n: graph.N) {
+
+            if ((from.find(n->nodeID) != from.end()) || (goalNodes.find(n->nodeID) != goalNodes.end())) {
                 continue;
             }
-            graph.deactivatedNodes.insert(n.first);
+            graph.deactivatedNodes.insert(n->nodeID);
             if (!graph.reachable(from, goalNodes)) {
                 cout << "- ";
-                n.second->printFact(domain);
+                n->printFact(domain);
                 cout << " is a LM" << endl;
             }
             graph.deactivatedNodes.clear();
@@ -762,7 +763,7 @@ StaticS0Def *FamCutLmFactory::getStaticS0Def(int predicateNo) {
     return this->staticS0[predicateNo];
 }
 
-void FamCutLmFactory::sortS0Def(DTGnode *partInstPrec, StaticS0Def *s0) {
+void FamCutLmFactory::sortS0Def(PINode *partInstPrec, StaticS0Def *s0) {
     vector<int>* sortBy = new vector<int>;
     for (int i = 0; i < partInstPrec->consts.size(); i++) {
         sortBy->push_back(i);

@@ -2,23 +2,23 @@
 // Created by dh on 12.11.21.
 //
 
-#include "DTGnode.h"
+#include "PINode.h"
 #include "model.h"
 #include <cassert>
 #include <iostream>
 
-DTGnode::DTGnode(DTGnode *that) {
+PINode::PINode(PINode *that) {
     this->schemaIndex =  that->schemaIndex;
     for (int i : that->consts) {
         this->consts.push_back(i);
     }
 }
 
-DTGnode::DTGnode() {
+PINode::PINode() {
 
 }
 
-bool DTGnode::abstractionOf(DTGnode *that) {
+bool PINode::abstractionOf(PINode *that) {
     if (this->schemaIndex != that->schemaIndex) {
         return false;
     }
@@ -33,7 +33,7 @@ bool DTGnode::abstractionOf(DTGnode *that) {
     return true;
 }
 
-void DTGnode::printFact(Domain &domain) {
+void PINode::printFact(Domain &domain) {
     cout << "(" << domain.predicates[this->schemaIndex].name;
     for (int k = 0; k < this->consts.size(); k++) {
         int obj = this->consts[k];

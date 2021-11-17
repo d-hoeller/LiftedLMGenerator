@@ -20,11 +20,11 @@ CXXFLAGS_LIBS=
 
 # CFlags for production and for debugging
 CXXFLAGS_GENERAL=-pipe -Wall -Wextra -pedantic -std=gnu++17 $(CDEFS) $(CWARN) $(CERROR) $(CXXFLAGS_LIBS) -fconcepts -I../cpddl/ -I../cpddl/third-party/boruvka/
-CCFLAGS_GENERAL=-pipe -Wall -Wextra -pedantic $(CDEFS) $(CWARN) $(CERROR) $(CXXFLAGS_LIBS) 
-OPTIMIZER_PROD=-O3
+CCFLAGS_GENERAL=-pipe -Wall -Wextra -pedantic $(CDEFS) $(CWARN) $(CERROR) $(CXXFLAGS_LIBS)
+OPTIMIZER_PROD=-O1
 OPTIMIZER_DEBUG=-Og
 CXXFLAGS_PROD=$(OPTIMIZER_PROD) -g -DNDEBUG -flto
-CXXFLAGS_DEBUG=$(OPTIMIZER_DEBUG) -ggdb3 -DDEBUG_MODE
+CXXFLAGS_DEBUG=$(OPTIMIZER_DEBUG) -DDEBUG_MODE
 CCFLAGS=$(CCFLAGS_GENERAL) $(CXXFLAGS_PROD)
 
 

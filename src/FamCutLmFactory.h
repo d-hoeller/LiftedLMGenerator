@@ -13,7 +13,7 @@
 #include <iostream>
 #include "cassert"
 #include "StaticS0Def.h"
-#include "DTGnode.h"
+#include "PINode.h"
 
 using namespace std;
 
@@ -64,7 +64,7 @@ public:
 
     StaticS0Def *getStaticS0Def(int predicateNo);
 
-    void sortS0Def(DTGnode *partInstPrec, StaticS0Def *s0);
+    void sortS0Def(PINode *partInstPrec, StaticS0Def *s0);
 
     void quicksort(StaticS0Def *A, int links, int rechts, vector<int> *sortBy);
 

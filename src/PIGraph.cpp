@@ -2,37 +2,32 @@
 // Created by dh on 12.11.21.
 //
 
-#include "DTGraph.h"
+#include "PIGraph.h"
 #include "model.h"
 #include <cassert>
 #include <fstream>
 #include <bits/stdc++.h>
 
-//void DTGraph::addArc(int from, int to) {
-//    if (successors.find(from) == successors.end()) {
-//        successors[from] = new unordered_set<int>;
-//    }
-//    successors[from]->insert(to);
-//
-//    if (predecessors.find(to) == predecessors.end()) {
-//        predecessors[to] = new unordered_set<int>;
-//    }
-//    predecessors[to]->insert(from);
-//}
+void PIGraph::addNode(PINode *pGnode) {
+    pGnode->nodeID = this->nodeID++;
+    N.insert(pGnode);
+//    iToN[pGnode->id] = pGnode;
+}
 
-void DTGraph::addArc(int from, int to, DTGnode *partInstAction) {
+void PIGraph::addArc(int from, int to, PINode *partInstantiation) {
     assert(from >= 0);
     assert(to >= 0);
-    DTarc *arc = new DTarc();
-    arc->partInstAction = partInstAction;
+    PIArc *arc = new PIArc();
+    arc->arcid = this->arcID++;
+    arc->partInstantiation = partInstantiation;
     successors[from][to].insert(arc);
     predecessors[to][from].insert(arc);
 }
 
 typedef pair<int, int> pi;
-bool DTGraph::reachable(set<int> &from, set<int> &to) {
+bool PIGraph::reachable(set<int> &from, set<int> &to) {
     unordered_map<int, int> dist;
-    unordered_map<int, DTarc*> via;
+    unordered_map<int, PIArc*> via;
     priority_queue<pi, vector<pi>, greater<pi> > Q;
 
     for (int n : from) {
@@ -50,9 +45,9 @@ bool DTGraph::reachable(set<int> &from, set<int> &to) {
         for (auto arcs: successors[n]) {
             const int to = arcs.first;
             int minCosts = INT_MAX;
-            DTarc* localvia;
+            PIArc* localvia;
             for (auto arc: arcs.second) {
-                if (!arc->deactivated) {
+                if (deactivatedArcs.find(arc->arcid) == deactivatedArcs.end()) {
                     if ((d + arc->arccosts) < minCosts) {
                         minCosts = d + arc->arccosts;
                         localvia = arc;
@@ -77,13 +72,13 @@ bool DTGraph::reachable(set<int> &from, set<int> &to) {
     return false;
 }
 
-void DTGraph::showDot(Domain domain) {
+void PIGraph::showDot(Domain domain) {
     ofstream dotfile;
     dotfile.open ("graph.dot");
     dotfile << "digraph {\n";
 
-    for (DTGnode *n: this->N) {
-        dotfile << "   n" << n->id << " [label=\"(" << n->id << ": " << domain.predicates[n->schemaIndex].name;
+    for (PINode *n: this->N) {
+        dotfile << "   n" << n->nodeID << " [label=\"(" << n->nodeID << ": " << domain.predicates[n->schemaIndex].name;
         for (int k = 0; k < n->consts.size(); k++) {
             int obj = n->consts[k];
             if (obj < 0) {
@@ -101,9 +96,9 @@ void DTGraph::showDot(Domain domain) {
             int to = iter2.first;
             for (auto arc: iter2.second) {
                 dotfile << "   n" << from << " -> n" << to << " [label=\"";
-                dotfile << "(" << domain.tasks[arc->partInstAction->schemaIndex].name;
-                for (int i = 0; i < arc->partInstAction->consts.size(); i++) {
-                    int obj = arc->partInstAction->consts[i];
+                dotfile << "(" << domain.tasks[arc->partInstantiation->schemaIndex].name;
+                for (int i = 0; i < arc->partInstantiation->consts.size(); i++) {
+                    int obj = arc->partInstantiation->consts[i];
                     if(obj == -1) {
                         dotfile << " ?";
                     } else {
@@ -117,10 +112,4 @@ void DTGraph::showDot(Domain domain) {
     dotfile << "}\n";
     dotfile.close();
     system("xdot graph.dot");
-}
-
-void DTGraph::insertNode(DTGnode *pGnode) {
-    pGnode->id = id++;
-    N.insert(pGnode);
-    iToN[pGnode->id] = pGnode;
 }

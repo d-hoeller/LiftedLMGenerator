@@ -2,32 +2,32 @@
 // Created by dh on 12.11.21.
 //
 
-#ifndef SRC_DTGNODE_H
-#define SRC_DTGNODE_H
+#ifndef SRC_PINODE_H
+#define SRC_PINODE_H
 
 #include <vector>
-//#include "DTGraph.h"
+//#include "PIGraph.h"
 //#include "DTGHelper.h"
 #include <unordered_set>
 #include "model.h"
 
 using namespace std;
 
-class DTGnode {
+class PINode {
 public:
-    DTGnode();
+    PINode();
 
-    DTGnode(DTGnode *pGnode);
+    PINode(PINode *pGnode);
 
     int schemaIndex; // might be action or predicate schema
     vector<int> consts;
-    int id = -1;
+    int nodeID = -1;
     bool deactivated = false;
-//    unordered_set<DTGnode*, DTGnodeHasher, DTGnodeComparator> N;
-    bool abstractionOf(DTGnode *pGnode);
+//    unordered_set<PINode*, PINodeHasher, PINodeComparator> N;
+    bool abstractionOf(PINode *pGnode);
 
     void printFact(Domain &domain);
 };
 
 
-#endif //SRC_DTGNODE_H
+#endif //SRC_PINODE_H
