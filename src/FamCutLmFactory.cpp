@@ -457,6 +457,51 @@ void FamCutLmFactory::generateLMs(int ig) {
             graph.deactivatedNodes.clear();
         }
     }
+
+    set<int> goalZone;
+    set<int> newGoalZone;
+    for (PINode *n: graph.N) {
+        if (n->abstractionOf(goalNode)) {
+            goalZone.insert(n->nodeID);
+            cout << "goal id " << n->nodeID << endl;
+        }
+    }
+
+    cout << "Generating cut-based landmarks..." << endl;
+    bool goalReached = false;
+    while (!goalReached) {
+        unordered_set<PINode*, PINodeHasher, PINodeComparator> cut;
+        newGoalZone.insert(goalZone.begin(), goalZone.end());
+        //cout << "- nodes in goal zone: " << goalZone.size() << endl;
+        for (auto n: goalZone) {
+            auto temp = graph.predecessors.find(n);
+            if (temp != graph.predecessors.end()) {
+                unordered_map<int, unordered_set<PIArc*>> arcs = temp->second;
+                for (auto arc : arcs) {
+                    int predNode = arc.first;
+                    if (newGoalZone.find(predNode) == newGoalZone.end()) {
+                        newGoalZone.insert(predNode);
+                        for (auto a : arc.second) {
+                            cut.insert(a->partInstantiation);
+                        }
+                        if (from.find(predNode) != from.end()) {
+                            goalReached = true;
+                        }
+                    }
+                }
+            }
+        }
+        cout << "- cut: ";
+        for (PINode* n : cut) {
+            n->printAction(domain);
+            cout << " ";
+        }
+        cout << endl;
+        auto temp = goalZone;
+        goalZone = newGoalZone;
+        newGoalZone = temp;
+        newGoalZone.clear();
+    }
 }
 
 
