@@ -27,6 +27,7 @@ public:
     bool abstractionOf(PINode *pGnode);
 
     void printFact(Domain &domain);
+    void printAction(Domain &domain);
 };
 
 

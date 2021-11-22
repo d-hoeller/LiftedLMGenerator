@@ -45,3 +45,16 @@ void PINode::printFact(Domain &domain) {
     }
     cout << ")";
 }
+
+void PINode::printAction(Domain &domain) {
+    cout << "(" << domain.tasks[this->schemaIndex].name;
+    for (int k = 0; k < this->consts.size(); k++) {
+        int obj = this->consts[k];
+        if(obj < 0) {
+            cout << " ?";
+        } else {
+            cout << " " << domain.constants[obj];
+        }
+    }
+    cout << ")";
+}
