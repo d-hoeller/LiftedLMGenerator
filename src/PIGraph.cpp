@@ -3,25 +3,22 @@
 //
 
 #include "PIGraph.h"
-#include "model.h"
-#include <cassert>
-#include <fstream>
-#include <bits/stdc++.h>
 
-void PIGraph::addNode(PINode *pGnode) {
-    pGnode->nodeID = this->nodeID++;
-    N.insert(pGnode);
-//    iToN[pGnode->id] = pGnode;
-}
 
-void PIGraph::addArc(int from, int to, PINode *partInstantiation) {
+
+void PIGraph::addArc(int from, int to, PINode *ArcLabel) {
     assert(from >= 0);
     assert(to >= 0);
     PIArc *arc = new PIArc();
     arc->arcid = this->arcID++;
-    arc->partInstantiation = partInstantiation;
+    arc->ArcLabel = ArcLabel;
     successors[from][to].insert(arc);
     predecessors[to][from].insert(arc);
+}
+
+void PIGraph::addNode(PINode *pGnode) {
+    pGnode->nodeID = this->nodeID++;
+    N.insert(pGnode);
 }
 
 typedef pair<int, int> pi;
@@ -96,20 +93,29 @@ void PIGraph::showDot(Domain domain) {
             int to = iter2.first;
             for (auto arc: iter2.second) {
                 dotfile << "   n" << from << " -> n" << to << " [label=\"";
-                dotfile << "(" << domain.tasks[arc->partInstantiation->schemaIndex].name;
-                for (int i = 0; i < arc->partInstantiation->consts.size(); i++) {
-                    int obj = arc->partInstantiation->consts[i];
+                dotfile << "(" << domain.tasks[arc->ArcLabel->schemaIndex].name;
+                for (int i = 0; i < arc->ArcLabel->consts.size(); i++) {
+                    int obj = arc->ArcLabel->consts[i];
                     if(obj == -1) {
                         dotfile << " ?";
                     } else {
                         dotfile << " " << domain.constants[obj];
                     }
                 }
-                dotfile << ")\"]\n";
+                dotfile << "\"]\n";
             }
         }
     }
     dotfile << "}\n";
     dotfile.close();
     system("xdot graph.dot");
+}
+
+PINode *PIGraph::getNode(int nodeID) {
+    for(PINode *n: N) {
+        if (n->nodeID == nodeID) {
+            return n;
+        }
+    }
+    return nullptr;
 }

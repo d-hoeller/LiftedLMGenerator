@@ -11,6 +11,11 @@
 #include <unordered_set>
 #include <unordered_map>
 #include "model.h"
+#include "model.h"
+#include "LandmarkGraph.h"
+#include <cassert>
+#include <fstream>
+#include <bits/stdc++.h>
 
 // partial instantiation graph
 class PIGraph {
@@ -18,14 +23,13 @@ class PIGraph {
     int arcID = 0;
 public:
     unordered_set<PINode*, PINodeHasher, PINodeComparator> N;
-//    unordered_map<int, PINode*> iToN;
     unordered_map<int, unordered_map<int, unordered_set<PIArc*>>> successors;
     unordered_map<int, unordered_map<int, unordered_set<PIArc*>>> predecessors;
 
     set<int> deactivatedNodes;
     set<int> deactivatedArcs;
 
-    void addArc(int from, int to, PINode *partInstantiation);
+    void addArc(int from, int to, PINode* ArcLabel);
 
     void addNode(PINode *pGnode);
 
@@ -33,7 +37,9 @@ public:
 
     void showDot(Domain domain);
 
+    PINode *getNode(int nodeID);
 };
+
 
 
 #endif //SRC_PIGRAPH_H

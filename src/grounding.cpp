@@ -76,10 +76,8 @@ void run_grounding (const Domain & domain, const Problem & problem, std::ostream
             cout << ")" << endl;
         }
 
-
         famGroups = compute_FAM_mutexes(domain, problem, config);
         FamCutLmFactory *lms = new FamCutLmFactory(domain, problem, famGroups);
-        lms->findGoalMatches();
         lms->generateLMs();
     }
     exit(0);
