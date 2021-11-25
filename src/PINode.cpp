@@ -3,6 +3,7 @@
 //
 
 #include "PINode.h"
+#include "PIHelper.h"
 #include "model.h"
 #include <cassert>
 #include <iostream>
@@ -16,6 +17,21 @@ PINode::PINode(PINode *that) {
 
 PINode::PINode() {
 
+}
+
+bool PINode::abstractionNotEqOf(PINode *that) {
+    bool equal = true;
+    for (int i = 0; i < this->consts.size(); i++) {
+        if (that->consts[i] != this->consts[i]) {
+            equal = false;
+            break;
+        }
+    }
+    if (equal) {
+        return false; // no generalization
+    } else {
+        return abstractionOf(that);
+    }
 }
 
 bool PINode::abstractionOf(PINode *that) {

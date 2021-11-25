@@ -25,6 +25,7 @@ public:
     bool deactivated = false;
 //    unordered_set<PINode*, PINodeHasher, PINodeComparator> N;
     bool abstractionOf(PINode *pGnode);
+    bool abstractionNotEqOf(PINode *pGnode);
 
     void printFact(Domain &domain);
     void printAction(Domain &domain);

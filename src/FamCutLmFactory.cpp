@@ -490,12 +490,9 @@ LandmarkGraph* FamCutLmFactory::generateCutLMs(PIGraph &dtg, PINode *targetNode,
     for (PINode *n: dtg.N) {
         if (n->abstractionOf(targetNode)) {
             goalZone.insert(n->nodeID);
-//            cout << "goal id " << n->nodeID << endl;
         }
     }
-
-//    targetNode->printFact(domain);
-//    cout << endl;
+    assert(goalZone.size() > 0);
     bool goalReached = false;
     int lastCut = -1;
     while (!goalReached) {
@@ -521,23 +518,45 @@ LandmarkGraph* FamCutLmFactory::generateCutLMs(PIGraph &dtg, PINode *targetNode,
                 }
             }
         }
+        assert(cut->lm.size() > 0);
+
+        if (cut->lm.size() > 1) {
+            vector<PINode *> needToDelete;
+            for (auto p1: cut->lm) {
+                for (auto p2: cut->lm) {
+                    if (p1->abstractionNotEqOf(p2)) {
+                        needToDelete.push_back(p1);
+                    }
+                }
+            }
+            cout << "  - cut: ";
+            for (PINode* n : cut->lm) {
+                n->printAction(domain);
+                cout << " ";
+            }
+            cout << endl;
+            if (!needToDelete.empty()) {
+                cout << "  - pruning cut, deleting ";
+                for (PINode *n: needToDelete) {
+                    cout << "\"";
+                    n->printAction(domain);
+                    cout << "\"";
+                    cut->lm.erase(n);
+                }
+                cout << endl;
+            }
+        }
+
         result->addNode(cut);
         if (lastCut >= 0) {
             result->addArc(cut->nodeID, lastCut, 0); // todo: which type?
         }
         lastCut = cut->nodeID;
-        cout << "  - cut: ";
-        for (PINode* n : cut->lm) {
-            n->printAction(domain);
-            cout << " ";
-        }
-        cout << endl;
         auto temp = goalZone;
         goalZone = newGoalZone;
         newGoalZone = temp;
         newGoalZone.clear();
     }
-//    result->showDot(domain);
     return result;
 }
 
