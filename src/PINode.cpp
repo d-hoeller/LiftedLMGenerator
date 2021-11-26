@@ -3,7 +3,6 @@
 //
 
 #include "PINode.h"
-#include "PIHelper.h"
 #include "model.h"
 #include <cassert>
 #include <iostream>
@@ -40,7 +39,7 @@ bool PINode::abstractionOf(PINode *that) {
     }
     assert(this->consts.size() == that->consts.size());
     for (int i = 0; i < this->consts.size(); i++) {
-        if (this->consts[i] != -1) {
+        if (this->consts[i] >= 0) {
             if (that->consts[i] != this->consts[i]) {
                 return false;
             }
@@ -54,7 +53,7 @@ void PINode::printFact(Domain &domain) {
     for (int k = 0; k < this->consts.size(); k++) {
         int obj = this->consts[k];
         if(obj < 0) {
-            cout << " ?";
+            cout << " ?" << (-1 * obj);
         } else {
             cout << " " << domain.constants[obj];
         }
@@ -67,7 +66,7 @@ void PINode::printAction(Domain &domain) {
     for (int k = 0; k < this->consts.size(); k++) {
         int obj = this->consts[k];
         if(obj < 0) {
-            cout << " ?";
+            cout << " ?" << (-1 * obj);
         } else {
             cout << " " << domain.constants[obj];
         }

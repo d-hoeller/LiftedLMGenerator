@@ -95,7 +95,7 @@ FamCutLmFactory::FamCutLmFactory(Domain d, Problem p, vector<FAMGroup> fg) {
                 this->modifier[iFAM].push_back(mod);
                 //cout << "MOD: " << iFAM << " " << mod->action << " " <<domain.tasks[mod->action].name << endl;
             } else {
-                cout << "AAAAHH" << endl;
+                cout << "ERROR: Relevant sizes do not match." << endl;
             }
         }
     }
@@ -275,7 +275,7 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node) {
 
     // need to store the free variables set by the goal fact
     vector<int> setFreeVars;
-    for (int i = 0; i < fam.vars.size(); i++) setFreeVars.push_back(-1);
+    for (int i = 0; i < fam.vars.size(); i++) setFreeVars.push_back(-1); // todo: replace -1
     for (int iLit = 0; iLit < fam.literals.size(); iLit++) {
         if (fam.literals[iLit].predicateNo == node->schemaIndex) {
             for (int iLitArg = 0; iLitArg < fam.literals[iLit].args.size(); iLitArg++) {
@@ -319,34 +319,24 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node) {
             // need actions where
             // - precondition is n
             // - static preconditions hold
-//            cout << "arcs: " << modifier[iFamGroup].size() << endl;
             for (auto arc: modifier[iFamGroup]) {
                 int a = arc->action;
                 int numVars = domain.tasks[a].variableSorts.size();
                 PINode *partInstAction = new PINode;
                 for (int i = 0; i < numVars; i++) {
-                    partInstAction->consts.push_back(-1);
+                    partInstAction->consts.push_back(-1); // todo: here is a -1
                 }
                 auto prec = domain.tasks[a].preconditions[arc->prec];
                 partInstAction->schemaIndex = a;
                 if ((prec.predicateNo == n->schemaIndex) && (isCompatible(domain.tasks[a], prec, fam))) {
                     // determine bindings by precondition belonging to FAM group
                     for (int iPrec = 0; iPrec < prec.arguments.size(); iPrec++) {
-                        int var = prec.arguments[iPrec];
-                        int val = n->consts[iPrec];
+                        const int var = prec.arguments[iPrec];
+                        const int val = n->consts[iPrec];
                         partInstAction->consts[var] = val;
                     }
                     cout << "    - arc introduced by action \"";
                     partInstAction->printAction(domain);
-//                    cout << "  - (" << domain.tasks[prec.predicateNo].name;
-//                    for (int i = 0; i < numVars; i++) {
-//                        int obj = partInstAction->consts[i];
-//                        if (obj == -1) {
-//                            cout << " ?";
-//                        } else {
-//                            cout << " " << domain.constants[obj];
-//                        }
-//                    }
                     cout << "\"" << endl;
                     // determine bindings by static precondition
 //                    for (int inv: arc->staticPrecs) {
@@ -372,7 +362,7 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node) {
                         }
                         vector<int> varsToGround;
                         for (int i = 0; i < partInstAction->consts.size(); i++) {
-                            if ((partInstAction->consts[i] == -1) &&
+                            if ((partInstAction->consts[i] < 0) &&
                                 (containedInEffect.find(i) != containedInEffect.end())) {
                                 varsToGround.push_back(i);
                             }
@@ -400,7 +390,7 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node) {
                         auto eff = domain.tasks[a].effectsAdd[arc->add];
                         partInstEffect->schemaIndex = eff.predicateNo;
                         for (int l = 0; l < eff.arguments.size(); l++) {
-                            int var = eff.arguments[l];
+                            const int var = eff.arguments[l];
                             partInstEffect->consts.push_back(action->consts[var]);
                         }
                         auto iter = graph.N.find(partInstEffect);
@@ -799,7 +789,7 @@ bool FamCutLmFactory::containedInS0(PINode *pNode) { // todo: this must be made 
         bool compatible = true;
         for (int i = 0; i < pNode->consts.size(); i++) {
             int c = pNode->consts[i];
-            if (c == -1) continue; // text next consts
+            if (c < 0) continue; // text next consts
             if (f.arguments[i] != c) {
                 compatible = false;
                 break;

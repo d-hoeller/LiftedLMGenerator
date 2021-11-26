@@ -12,7 +12,11 @@ struct PINodeHasher {
         size_t res = hash<int>()(p->schemaIndex);
         for (int i: p->consts) {
             res = (res << 1);
-            res = res ^ hash<int>()(i);
+            if (i >= 0) {
+                res = res ^ hash<int>()(i);
+            } else {
+                res = res ^ hash<int>()(-1);
+            }
         }
         //cout << "HASH: " << res << endl;
         return res;
@@ -26,8 +30,11 @@ struct PINodeComparator {
         if (obj1->consts.size() != obj2->consts.size())
             return false;
         for (int i = 0; i < obj1->consts.size(); i++) {
-            if (obj1->consts[i] != obj2->consts[i])
-                return false;
+            if ((obj1->consts[i] >= 0) || (obj2->consts[i] >= 0)) {
+                if (obj1->consts[i] != obj2->consts[i]) {
+                    return false;
+                }
+            }
         }
         return true;
     }

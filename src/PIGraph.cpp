@@ -96,7 +96,7 @@ void PIGraph::showDot(Domain domain) {
                 dotfile << "(" << domain.tasks[arc->ArcLabel->schemaIndex].name;
                 for (int i = 0; i < arc->ArcLabel->consts.size(); i++) {
                     int obj = arc->ArcLabel->consts[i];
-                    if(obj == -1) {
+                    if(obj < 0) {
                         dotfile << " ?";
                     } else {
                         dotfile << " " << domain.constants[obj];

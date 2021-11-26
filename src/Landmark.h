@@ -20,8 +20,10 @@ struct mycompare {
             return x->consts.size() < y->consts.size();
         }
         for (int i = 0; i < x->consts.size(); i++) {
-            if (x->consts[i] != y->consts[i]) {
-                return x->consts[i] < y->consts[i];
+            if ((x->consts[i] >= 0) || (y->consts[i] >= 0)) {
+                if (x->consts[i] != y->consts[i]) {
+                    return x->consts[i] < y->consts[i];
+                }
             }
         }
         return false;
