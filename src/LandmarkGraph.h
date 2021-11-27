@@ -62,13 +62,17 @@ public:
     unordered_map<int, unordered_map<int, unordered_set<int>>> predecessors;
     pair<int, int> addNode(Landmark *lm);
 
-    void showDot(Domain domain);
+    void showDot(Domain domain, bool openXDot);
 
     Landmark *getNode(int i);
 
     void addArc(int fromID, int toID, int type);
 
     vector<int>* merge(int nodeID, LandmarkGraph *subGraph, int OrderingType);
+
+    void prune(int pruneblanks, set<int> &invariants);
+
+    void writeToFile(string filename, Domain domain);
 };
 
 

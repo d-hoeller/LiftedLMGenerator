@@ -32,6 +32,7 @@ struct mycompare {
 
 class Landmark {
 public:
+    bool isInS0 = false; // just for displaying
     string name = "";
     bool isDummy = false;
     Landmark(LMType type);

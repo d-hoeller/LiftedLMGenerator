@@ -17,7 +17,6 @@ FamCutLmFactory::FamCutLmFactory(Domain d, Problem p, vector<FAMGroup> fg) {
     for (int j = 0; j < famGroups.size(); j++) {
         printFamGroup(j);
     }
-
     //
     // create inverse mappings
     //
@@ -52,37 +51,67 @@ FamCutLmFactory::FamCutLmFactory(Domain d, Problem p, vector<FAMGroup> fg) {
                     relevantDels.push_back(k);
                 }
             }
-//            cout << "(" << domain.tasks[i].name;
-//            for (int j = 0; j < domain.tasks[i].variableSorts.size(); j++) {
-//                int s = domain.tasks[i].variableSorts[j];
-//                cout << " v" << j << " - " << domain.sorts[s].name;
-//            }
-//            cout << ")" << endl << ":preconditions" << endl;
-//            for (int j: relevantPrecs) {
-//                int p = domain.tasks[i].preconditions[j].predicateNo;
-//                cout << "   (" << domain.predicates[p].name;
-//                for (int k = 0; k < domain.tasks[i].preconditions[j].arguments.size(); k++) {
-//                    cout << " v" << domain.tasks[i].preconditions[j].arguments[k];
-//                }
-//                cout << ")" << endl;
-//            }
-//            cout << ":effects" << endl;
-//            for (int j: relevantAdds) {
-//                int p = domain.tasks[i].effectsAdd[j].predicateNo;
-//                cout << "   (" << domain.predicates[p].name;
-//                for (int k = 0; k < domain.tasks[i].effectsAdd[j].arguments.size(); k++) {
-//                    cout << " v" << domain.tasks[i].effectsAdd[j].arguments[k];
-//                }
-//                cout << ")" << endl;
-//            }
-//            for (int j: relevantDels) {
-//                int p = domain.tasks[i].effectsDel[j].predicateNo;
-//                cout << "   (not (" << domain.predicates[p].name;
-//                for (int k = 0; k < domain.tasks[i].effectsDel[j].arguments.size(); k++) {
-//                    cout << " v" << domain.tasks[i].effectsDel[j].arguments[k];
-//                }
-//                cout << "))" << endl;
-//            }
+            cout << "(" << domain.tasks[i].name;
+            for (int j = 0; j < domain.tasks[i].variableSorts.size(); j++) {
+                int s = domain.tasks[i].variableSorts[j];
+                cout << " v" << j << " - " << domain.sorts[s].name;
+            }
+            cout << ")" << endl << ":preconditions" << endl;
+            for (int j: relevantPrecs) {
+                int p = domain.tasks[i].preconditions[j].predicateNo;
+                cout << "   (" << domain.predicates[p].name;
+                for (int k = 0; k < domain.tasks[i].preconditions[j].arguments.size(); k++) {
+                    cout << " v" << domain.tasks[i].preconditions[j].arguments[k];
+                }
+                cout << ")" << endl;
+            }
+            cout << ":effects" << endl;
+            for (int j: relevantAdds) {
+                int p = domain.tasks[i].effectsAdd[j].predicateNo;
+                cout << "   (" << domain.predicates[p].name;
+                for (int k = 0; k < domain.tasks[i].effectsAdd[j].arguments.size(); k++) {
+                    cout << " v" << domain.tasks[i].effectsAdd[j].arguments[k];
+                }
+                cout << ")" << endl;
+            }
+            for (int j: relevantDels) {
+                int p = domain.tasks[i].effectsDel[j].predicateNo;
+                cout << "   (not (" << domain.predicates[p].name;
+                for (int k = 0; k < domain.tasks[i].effectsDel[j].arguments.size(); k++) {
+                    cout << " v" << domain.tasks[i].effectsDel[j].arguments[k];
+                }
+                cout << "))" << endl;
+            }
+
+            // try to fix wrong counts
+            if ((relevantPrecs.size() > 1) && (relevantAdds.size() == 1) && (relevantDels.size() == 1)) {
+                // looking for one matching the delete effect
+                int count = 0;
+                int matchID = -1;
+                auto delEff = domain.tasks[i].effectsDel[relevantDels[0]];
+                for (int m = 0; m < relevantPrecs.size(); m++) {
+                    auto prec = domain.tasks[i].preconditions[relevantPrecs[m]];
+                    if (prec.predicateNo != delEff.predicateNo) {
+                        continue;
+                    }
+
+                    bool match = true;
+                    for (int n = 0; n < prec.arguments.size(); n++) {
+                        if (prec.arguments[n] != delEff.arguments[n]) {
+                            match = false;
+                            break;
+                        }
+                    }
+                    if (match) {
+                        count++;
+                        matchID = relevantPrecs[m];
+                    }
+                }
+                if (count == 1) {
+                    relevantPrecs.clear();
+                    relevantPrecs.push_back(matchID);
+                }
+            }
 
             if (relevantAdds.empty() && relevantDels.empty()) {
                 // maybe a precondition, no effect: not interesting, not harmful
@@ -94,8 +123,12 @@ FamCutLmFactory::FamCutLmFactory(Domain d, Problem p, vector<FAMGroup> fg) {
                 mod->add = relevantAdds[0];
                 this->modifier[iFAM].push_back(mod);
                 //cout << "MOD: " << iFAM << " " << mod->action << " " <<domain.tasks[mod->action].name << endl;
+            } else if (!isNormalArc(i, relevantPrecs[0], relevantDels[0])) {
+                cout << "ERROR: arc is not normal." << endl;
+                exit(-1);
             } else {
                 cout << "ERROR: Relevant sizes do not match." << endl;
+                exit(-1);
             }
         }
     }
@@ -157,7 +190,10 @@ void FamCutLmFactory::generateLMs() {
     for (int id: todo) {
         lmDispatcher(lmg, id);
     }
-    lmg->showDot(domain);
+    //lmg->showDot(domain, false);
+    lmg->prune(0, invariant);
+    lmg->showDot(domain, false);
+    lmg->writeToFile("LMs.txt", domain);
 }
 
 int FamCutLmFactory::getFAMMatch(PINode* node) {
@@ -203,6 +239,7 @@ void FamCutLmFactory::lmDispatcher(LandmarkGraph* lmg, int nodeID) {
         if (node->isFactLM) {
             PINode* n = *node->lm.begin();
             if (containedInS0(n)) {
+                node->isInS0 = true;
                 return;
             }
             for (auto n: node->lm) {
@@ -339,16 +376,52 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node) {
                     partInstAction->printAction(domain);
                     cout << "\"" << endl;
                     // determine bindings by static precondition
-//                    for (int inv: arc->staticPrecs) {
-//                        PINode *partInstPrec = new PINode;
-//                        auto precSchema = domain.tasks[a].preconditions[inv];
-//                        for (int i = 0; i < precSchema.arguments.size(); i++) {
-//                            int var = precSchema.arguments[i];
-//                            partInstPrec->consts.push_back(ArcLabel->consts[var]);
-//                        }
+                    bool incompatible = false;
+                    for (int inv: arc->staticPrecs) {
+                        PINode *partInstPrec = new PINode;
+                        auto precSchema = domain.tasks[a].preconditions[inv];
+                        partInstPrec->schemaIndex = precSchema.predicateNo;
+                        for (int i = 0; i < precSchema.arguments.size(); i++) {
+                            int var = precSchema.arguments[i];
+                            partInstPrec->consts.push_back(partInstAction->consts[var]);
+                        }
+                        cout << "      - analyzing static prec \"";
+                        partInstPrec->printFact(domain);
+                        cout << "\": ";
+
+                        vector<Fact>* s0d = gets0Def(partInstPrec);
+                        if (s0d->empty()) {
+                            cout << "unfulfilled -> no new arc." << endl;
+                            incompatible = true;
+                            break;
+                        } else if (s0d->size() == 1) {
+                            for (int l = 0; l < s0d->size(); l++) {
+                                const int obj = s0d->at(0).arguments[l];
+                                const int var = precSchema.arguments[l];
+                                if (partInstAction->consts[var] < 0) {
+                                    cout << "setting param " << var << " to \"" << domain.constants[obj] << "\" -> \"";
+                                    partInstAction->consts[var] = obj;
+                                    partInstAction->printAction(domain);
+                                    cout << "\"." << endl;
+                                } else if (partInstAction->consts[var] != obj) {
+                                    cout << "unfulfilled -> no new ar.c" << endl;
+                                    incompatible = true;
+                                    break;
+                                } else {
+                                    cout << "fine." << endl;
+                                }
+                            }
+                        } else {
+                            cout << "found " << s0d->size() << " compatible atoms in s0." << endl;
+                        }
 //                        StaticS0Def* s0Def = getStaticS0Def(precSchema.predicateNo);
 //                        sortS0Def(partInstPrec, s0Def);
-//                    }
+//                        for ()
+                    }
+                    if (incompatible) {
+                        continue;
+                    }
+
                     // now we have a partially instantiated action, we need to get the effect
 
                     vector<PINode *> *actionsToGround = new vector<PINode *>;
@@ -482,7 +555,15 @@ LandmarkGraph* FamCutLmFactory::generateCutLMs(PIGraph &dtg, PINode *targetNode,
             goalZone.insert(n->nodeID);
         }
     }
-    assert(goalZone.size() > 0);
+
+    if (goalZone.size() == 0) {
+        cout << "Target node: ";
+        targetNode->printFact(domain);
+        cout << endl;
+        dtg.showDot(domain);
+        cout << "ERROR: goal zone is empty" << endl;
+        exit(-1);
+    }
     bool goalReached = false;
     int lastCut = -1;
     while (!goalReached) {
@@ -509,6 +590,7 @@ LandmarkGraph* FamCutLmFactory::generateCutLMs(PIGraph &dtg, PINode *targetNode,
             }
         }
         assert(cut->lm.size() > 0);
+//        cout << "1" << endl;
 
         if (cut->lm.size() > 1) {
             vector<PINode *> needToDelete;
@@ -672,9 +754,9 @@ bool FamCutLmFactory::isCompatible(Task &t, PredicateWithArguments &lit, FAMGrou
 }
 
 bool FamCutLmFactory::isNormalArc(int action, int relPrec, int relDel) {
-    assert((action >= 0) && (action < domain.tasks.size()));
-    assert((relPrec >= 0) && (relPrec < domain.tasks[action].preconditions.size()));
-    assert((relDel >= 0) && (relDel < domain.tasks[action].effectsDel.size()));
+    myassert((action >= 0) && (action < domain.tasks.size()));
+    myassert((relPrec >= 0) && (relPrec < domain.tasks[action].preconditions.size()));
+    myassert((relDel >= 0) && (relDel < domain.tasks[action].effectsDel.size()));
 
     auto prec = domain.tasks[action].preconditions[relPrec];
     auto del = domain.tasks[action].effectsDel[relDel];
@@ -800,4 +882,31 @@ bool FamCutLmFactory::containedInS0(PINode *pNode) { // todo: this must be made 
         }
     }
     return false;
+}
+
+void FamCutLmFactory::myassert(bool b) {
+    if(!b) {
+        cout << "assertion failed" << endl;
+        exit(-1);
+    }
+}
+
+vector<Fact> *FamCutLmFactory::gets0Def(PINode *pNode) {
+    vector<Fact> *res = new vector<Fact>();
+    for (Fact f: problem.init) {
+        if (pNode->schemaIndex != f.predicateNo) {
+            continue;
+        }
+        bool compatible = true;
+        for (int i = 0; i < f.arguments.size(); i++) {
+            if ((pNode->consts[i] >= 0) && (pNode->consts[i] != f.arguments[i])) {
+                compatible = false;
+                break;
+            }
+        }
+        if (compatible) {
+            res->push_back(f);
+        }
+    }
+    return res;
 }

@@ -79,6 +79,10 @@ public:
     LandmarkGraph *generatePrecNodes(Landmark *pLandmark);
 
     bool containedInS0(PINode *pNode);
+
+    void myassert(bool b);
+
+    vector<Fact> *gets0Def(PINode *pNode);
 };
 
 
