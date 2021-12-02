@@ -37,3 +37,7 @@ void Landmark::makeDummy(string name) {
     this->name = name;
     this->isDummy = true;
 }
+
+PINode *Landmark::getFirst() {
+    return (*this->lm.begin());
+}

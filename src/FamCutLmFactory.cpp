@@ -5,13 +5,12 @@
 #include "FamCutLmFactory.h"
 #include "LandmarkGraph.h"
 #include "Landmark.h"
+#include "NecSubLmFactory.h"
 #include <iostream>
 #include <map>
 #include <cassert>
 
-FamCutLmFactory::FamCutLmFactory(Domain d, Problem p, vector<FAMGroup> fg) {
-    this->domain = d;
-    this->problem = p;
+FamCutLmFactory::FamCutLmFactory(Domain d, Problem p, vector<FAMGroup> fg) : LmFactory(d, p) {
     this->famGroups = fg;
 
     for (int j = 0; j < famGroups.size(); j++) {
@@ -115,6 +114,10 @@ FamCutLmFactory::FamCutLmFactory(Domain d, Problem p, vector<FAMGroup> fg) {
 
             if (relevantAdds.empty() && relevantDels.empty()) {
                 // maybe a precondition, no effect: not interesting, not harmful
+            } else if ((relevantPrecs.size() == 1 && relevantAdds.size() == 0 && relevantDels.size() == 1)) {
+                cout << "- Found action decreasing FAM count (" << "Precs: " << relevantPrecs.size();
+                cout << ", Adds: " << relevantAdds.size() << ", Dels: " << relevantDels.size();
+                cout << ") this forms a dead end in the DTG and can be ignored." << endl;
             } else if ((relevantPrecs.size() == 1 && relevantAdds.size() == 1 && relevantDels.size() == 1)
                        && isNormalArc(i, relevantPrecs[0], relevantDels[0])) {
                 FAMmodifier *mod = new FAMmodifier;
@@ -128,6 +131,9 @@ FamCutLmFactory::FamCutLmFactory(Domain d, Problem p, vector<FAMGroup> fg) {
                 exit(-1);
             } else {
                 cout << "ERROR: Relevant sizes do not match." << endl;
+                cout << "Precs: " << relevantPrecs.size() << endl;
+                cout << "Adds: " << relevantAdds.size() << endl;
+                cout << "Dels: " << relevantDels.size() << endl;
                 exit(-1);
             }
         }
@@ -190,7 +196,7 @@ void FamCutLmFactory::generateLMs() {
     for (int id: todo) {
         lmDispatcher(lmg, id);
     }
-    //lmg->showDot(domain, false);
+    //lmg->showDot(domain, true);
     lmg->prune(0, invariant);
     lmg->showDot(domain, false);
     lmg->writeToFile("LMs.txt", domain);
@@ -227,10 +233,7 @@ int FamCutLmFactory::getFAMMatch(PINode* node) {
             }
         }
     }
-    cout << "ERROR: FAM group for atom \"";
-    node->printFact(domain);
-    cout << "\" not found" << endl;
-    exit(-1);
+    return -1;
 }
 
 void FamCutLmFactory::lmDispatcher(LandmarkGraph* lmg, int nodeID) {
@@ -243,9 +246,15 @@ void FamCutLmFactory::lmDispatcher(LandmarkGraph* lmg, int nodeID) {
                 return;
             }
             for (auto n: node->lm) {
-                LandmarkGraph *subgraph = generateLMs(n);
+                const int iFamGroup = getFAMMatch(n);
+                LandmarkGraph *subgraph;
+                if (iFamGroup >= 0) {
+                    subgraph = generateLMs(n, iFamGroup);
+                } else { // this is a LM not contained in a FAM-Group -> generate NSG
+                    subgraph = generateAchieverNodes(n);
+                }
                 vector<int> *newIDs = lmg->merge(node->nodeID, subgraph, 0); // todo: which type?
-                for (int n : *newIDs) {
+                for (int n: *newIDs) {
                     lmDispatcher(lmg, n);
                 }
 //                delete newIDs;
@@ -302,12 +311,11 @@ LandmarkGraph *FamCutLmFactory::generatePrecNodes(Landmark *pLandmark) {
 }
 
 
-LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node) {
+LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
     cout << "- generating DTG for LM \"";
     node->printFact(domain);
     cout << "\"" << endl;
 
-    const int iFamGroup = getFAMMatch(node);
     FAMGroup fam = famGroups[iFamGroup];
 
     // need to store the free variables set by the goal fact
@@ -864,26 +872,6 @@ bool FamCutLmFactory::greater(StaticS0Def *A, int i, int* pivot, vector<int> *so
     return false; // they are equal
 }
 
-bool FamCutLmFactory::containedInS0(PINode *pNode) { // todo: this must be made more efficient!
-    for (Fact f : problem.init) {
-        if (f.predicateNo != pNode->schemaIndex) continue;
-        if (f.arguments.size() != pNode->consts.size()) continue;
-        bool compatible = true;
-        for (int i = 0; i < pNode->consts.size(); i++) {
-            int c = pNode->consts[i];
-            if (c < 0) continue; // text next consts
-            if (f.arguments[i] != c) {
-                compatible = false;
-                break;
-            }
-        }
-        if (compatible) {
-           return true;
-        }
-    }
-    return false;
-}
-
 void FamCutLmFactory::myassert(bool b) {
     if(!b) {
         cout << "assertion failed" << endl;
@@ -908,5 +896,19 @@ vector<Fact> *FamCutLmFactory::gets0Def(PINode *pNode) {
             res->push_back(f);
         }
     }
+    return res;
+}
+
+LandmarkGraph *FamCutLmFactory::generateAchieverNodes(PINode *n) {
+    NecSubLmFactory nsl(domain, problem);
+    LandmarkGraph *g = nsl.getLandmarks(n);
+    LandmarkGraph *res = new LandmarkGraph();
+    n->printFact(domain);
+    const int p = n->schemaIndex;
+    for (pair<int, int> ach : achiever[p]) {
+        cout << domain.tasks[ach.first].name << " ";
+        cout << domain.predicates[domain.tasks[ach.first].effectsAdd[ach.second].predicateNo].name << endl;
+    }
+    exit(-1);
     return res;
 }

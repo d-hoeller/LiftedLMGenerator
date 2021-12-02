@@ -49,6 +49,8 @@ public:
     int nodeID;
 
     void makeDummy(string name);
+
+    PINode *getFirst();
 };
 
 

@@ -9,149 +9,167 @@ NecSubLmFactory::NecSubLmFactory(Domain &domain, Problem &problem) : LmFactory(d
 }
 
 LandmarkGraph *NecSubLmFactory::getLandmarks(PINode *n) {
-    Assignment.model = this.model;
+    LandmarkGraph *allLMs = new LandmarkGraph();
+    vector<Landmark*> newLMS;
+//    if (model.Tinit >= 0) {
+//        LandmarkNode initialTask = new LandmarkNode(LandmarkNode.nTask, new int[]{model.Tinit});
+//        allLMs.add(initialTask);
+//        newLMS.add(initialTask);
+//    }
 
-    LandmarkGraph allLMs = new LandmarkGraph();
-    List<LandmarkNode> newLMS = new ArrayList<>();
-    if (model.Tinit >= 0) {
-        LandmarkNode initialTask = new LandmarkNode(LandmarkNode.nTask, new int[]{model.Tinit});
-        allLMs.add(initialTask);
-        newLMS.add(initialTask);
-    }
-
-    for (int i = 0; i < model.numGoalFacts; i++) {
-        LandmarkNode goalFact = new LandmarkNode(LandmarkNode.nFact, model.goal[i]);
-        allLMs.add(goalFact);
-        if (!goalFact.includedIn(model.s0)) {
-            newLMS.add(goalFact);
+    for (auto g: problem.goal) {
+        PINode *pNode = getPINode(g);
+        Landmark *goalFact = new Landmark(pNode, FactAND);
+        allLMs->addNode(goalFact);
+        if (!containedInS0(pNode)) {
+            newLMS.push_back(goalFact);
         }
     }
-    System.out.println(";; Found " + allLMs.size() + " trivial LMs.");
-    //for(Assignment a : allLMs)
-    //    System.out.println(a);
+    cout << ";; Found " << allLMs->N.size() << " trivial LMs." << endl;
 
-    while (!newLMS.isEmpty()) {
-        List<LandmarkNode> thisRound = new ArrayList<>();
-        for (LandmarkNode lm : newLMS) {
+    while (!newLMS.empty()) {
+        vector<Landmark*> thisRound;
+        for (Landmark lm : newLMS) {
             //System.out.println("LM: " + lm);
-            if (lm.isFact()) {
+            if (lm.isFactLM) {
                 // predicate -> [{objX, objY, ...}, {...}, {...}]
                 // - the predicate might be a LM, it occurs in the precs of every action that adds the actual LM
                 // - the sets capture possible parameters of this LM
                 // - however, each parameter is considered separately -> these are candidates, not LMs
 
-                int lmPred = lm.getHeadDef();
+                PINode* n = lm.getFirst();
+                const int lmPred = n->schemaIndex;
 
                 // no action adding it? -> continue
-                if (model.predicateToActionsAddingIt[lmPred].length == 0)
+                if (achiever[lmPred].empty())
                     continue;
 
                 // find action with least number of preconditions
-                int precs = Integer.MAX_VALUE;
+                int precs = INTMAX_MAX;
                 int iA0 = -1;
-                for (int iAc = 0; iAc < model.predicateToActionsAddingIt[lmPred].length; iAc++) {
-                    int a = model.predicateToActionsAddingIt[lmPred][iAc][0];
-                    if (model.numPrecond[a] < precs) {
-                        iA0 = iAc;
+
+                for (int iAch = 0; iAch < achiever[lmPred].size(); iAch++) {
+                    pair<int, int> ach = achiever[lmPred][iAch];
+                    const int a = ach.first;
+                    if (domain.tasks[a].preconditions.size() < precs) {
+                        iA0 = iAch;
                     }
                 }
-                int[] pair = model.predicateToActionsAddingIt[lmPred][iA0]; // pair of action and add effect
-                int a = pair[0];
-                int eff = pair[1];
+                pair<int, int> pair = achiever[lmPred][iA0]; // pair of action and add effect
+                int a = pair.first;
+                int eff = pair.second;
                 //System.out.println("Init LMs with:");
                 //System.out.println(model.printTask(a));
                 //System.out.println("a" + pair[0] + " - " + "e" + pair[1]);
 
                 // which of the parameters are bound by the lm parameters?
-                Map<Integer, Integer> binding = new HashMap<>();
-                for (int i = 1; i < model.add[a][eff].length; i++) {
-                    int paramIndex = model.add[a][eff][i];
-                    int obj = lm.getParamsNo(i - 1);
-                    if (obj == -1) // unbound
-                        continue;
+                map<int, int> binding;
+                for (int i = 0; i < domain.tasks[a].effectsAdd[eff].arguments.size(); i++) {
+                    int paramIndex = domain.tasks[a].effectsAdd[eff].arguments[i];
+                    int obj = n->consts[i]; // todo: was i - 1 (?)
+//                    if (obj == -1) // unbound
+//                        continue;
                     //System.out.println(paramIndex + " -> " + model.constNames[obj]);
-                    binding.put(paramIndex, obj);
+                    binding[paramIndex] = obj;
                 }
 
                 // go over preconditions and collect candidates for new LMs
                 // special cases:
                 // - two effects of one action match lm -> can be treated as two actions
                 // - two preconditions of same action match -> can choose the "right" one
-                List<int[]> candidate = new ArrayList<>();
-                for (int i = 0; i < model.numPrecond[a]; i++) {
-                    int[] lmc = new int[model.precond[a][i].length];
-                    lmc[0] = model.precond[a][i][0];
+                vector<PINode*> candidate;
+                auto prec = domain.tasks[a].preconditions;
+                for (int i = 0; i < prec.size(); i++) {
+                    PINode* lmc = new PINode();
+                    lmc->schemaIndex = prec[i].predicateNo;
                     int foundBindings = 0;
-                    for (int k = 1; k < model.precond[a][i].length; k++) {
-                        lmc[k] = -1; // unbound
+                    for (int k = 0; k < prec[i].arguments.size(); k++) {
+                        lmc->consts[k] = -1; // unbound
                     }
-                    for (int j = 1; j < model.precond[a][i].length; j++) {
-                        int param = model.precond[a][i][j];
-                        if (binding.containsKey(param)) {
-                            lmc[j] = binding.get(param);
+                    for (int j = 1; j < prec[i].arguments.size(); j++) {
+                        int param = prec[i].arguments[j];
+                        if (binding[param] >= 0) {
+                            lmc->consts[j] = binding[param];
                             foundBindings++;
                         }
                     }
                     if (foundBindings >= keepIfBound) {
-                        candidate.add(lmc);
+                        candidate.push_back(lmc);
                     }
                 }
 
-                candidate_loop:
-                while (!candidate.isEmpty()) {
-                    int[] lmc = candidate.remove(0);
+//                candidate_loop:
+                while (!candidate.empty()) {
+                    PINode* lmc = candidate.back();
+                    candidate.pop_back();
+
                     // need to find a precondition of each action that matches with lm candidates
-                    for (int iAc = 0; iAc < model.predicateToActionsAddingIt[lmPred].length; iAc++) {
+                    bool continueCandidateLoop = false;
+                    for (int iAc = 0; iAc < achiever[lmPred].size(); iAc++) {
                         if (iAc == iA0) continue; // this was used to generate candidates
-                        pair = model.predicateToActionsAddingIt[lmPred][iAc]; // pair of action and add effect
-                        a = pair[0];
-                        eff = pair[1];
+                        pair = achiever[lmPred][iAc]; // pair of action and add effect
+                        a = pair.first;
+                        eff = pair.second;
                         //System.out.println(model.printTask(a));
                         //System.out.println("a" + pair[0] + " - " + "e" + pair[1]);
 
                         // which of the parameters are bound by the lm parameters?
-                        binding = new HashMap<>();
-                        for (int j = 1; j < model.add[a][eff].length; j++) {
-                            int paramIndex = model.add[a][eff][j];
-                            int obj = lm.getParamsNo(j - 1);
-                            if (obj == -1) continue; // unbound
-                            binding.put(paramIndex, obj);
+                        binding.clear();
+                        for (int j = 1; j < domain.tasks[a].effectsAdd[eff].arguments.size(); j++) {
+                            int paramIndex = domain.tasks[a].effectsAdd[eff].arguments[j];
+                            int obj = n->consts[j];
+//                            if (obj == -1) continue; // unbound
+                            binding[paramIndex] = obj;
                         }
 
                         //List<int[]> relaxedCandidates = new ArrayList<>();
-                        boolean foundsome = false;
-                        precLoop:
-                        for (int i = 0; i < model.numPrecond[a]; i++) {
-                            int pred = model.precond[a][i][0];
-                            if (lmc[0] != pred) continue;
+                        bool foundsome = false;
+//                        precLoop:
+                        bool continuePrecLoop = true;
+                        auto prec = domain.tasks[a].preconditions;
+                        for (int i = 0; i < prec.size(); i++) {
+                            int pred = prec[i].predicateNo;
+                            if (lmc->schemaIndex != pred) continue;
 
-                            for (int j = 1; j < model.precond[a][i].length; j++) {
-                                int param = model.precond[a][i][j];
+                            for (int j = 1; j < prec[i].arguments.size(); j++) {
+                                int param = prec[i].arguments[j];
                                 int obj = -1;
-                                if (binding.containsKey(param)) {
-                                    obj = binding.get(param);
+                                if (binding[param] >= 0) {
+                                    obj = binding[param];
                                 }
-                                if (lmc[j] != obj) {
-                                    continue precLoop;
+                                if (lmc->consts[j] != obj) { // is this correct?
+                                    continuePrecLoop = true;
+                                    break;
+//                                    continue precLoop;
                                 }
+                            }
+                            if (continuePrecLoop) {
+                                continuePrecLoop = false;
+                                continue;
                             }
                             foundsome = true;
                             break;
                         }
                         if (!foundsome) {
-                            continue candidate_loop;
+//                            continue candidate_loop;
+                            continueCandidateLoop = true;
                         }
                     }
-                    LandmarkNode lmNew = new LandmarkNode(Assignment.nFact, lmc);
-                    allLMs.add(lmNew, lm);
-                    if (!lmNew.includedIn(model.s0)) {
-                        thisRound.add(lmNew);
+                    if (continueCandidateLoop) {
+                        continueCandidateLoop = false;
+                        continue;
+                    }
+                    Landmark *lmNew = new Landmark(lmc, FactAND);
+                    allLMs->addNode(lmNew);
+                    allLMs->addArc(lm.nodeID, lmNew->nodeID, 0);
+                    if (!containedInS0(lmc)) {
+                        thisRound.push_back(lmNew);
                     }
                 }
             }
         }
         newLMS = thisRound;
     }
-    System.out.println(";; Found " + allLMs.size() + " LMs.");
+    cout << ";; Found " << allLMs->N.size() << " LMs.";
     return allLMs;
 }

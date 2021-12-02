@@ -16,6 +16,7 @@
 #include "PIGraph.h"
 #include "PIArc.h"
 #include "LandmarkGraph.h"
+#include "LmFactory.h"
 
 using namespace std;
 
@@ -26,9 +27,8 @@ struct FAMmodifier {
     vector<int> staticPrecs;
 };
 
-class FamCutLmFactory {
-    Domain domain;
-    Problem problem;
+class FamCutLmFactory : public LmFactory{
+
     vector<FAMGroup> famGroups;
     set<int> invariant;
 
@@ -66,7 +66,7 @@ public:
     bool nodeBasedLMs = true;
     bool cutBasedLMs = false;
 
-    LandmarkGraph *generateLMs(PINode *node);
+    LandmarkGraph *generateLMs(PINode *node, int iFamGroup);
 
     void lmDispatcher(LandmarkGraph *lmg, int nodeID);
 
@@ -78,11 +78,11 @@ public:
 
     LandmarkGraph *generatePrecNodes(Landmark *pLandmark);
 
-    bool containedInS0(PINode *pNode);
-
     void myassert(bool b);
 
     vector<Fact> *gets0Def(PINode *pNode);
+
+    LandmarkGraph *generateAchieverNodes(PINode *pNode);
 };
 
 
