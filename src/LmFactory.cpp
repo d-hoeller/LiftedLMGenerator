@@ -27,7 +27,7 @@ bool LmFactory::containedInS0(PINode *pNode) { // todo: this must be made more e
         bool compatible = true;
         for (int i = 0; i < pNode->consts.size(); i++) {
             int c = pNode->consts[i];
-            if (c < 0) continue; // text next consts
+            if (c < 0) continue; // test next consts
             if (f.arguments[i] != c) {
                 compatible = false;
                 break;
@@ -47,4 +47,8 @@ PINode *LmFactory::getPINode(Fact &f) {
         res->consts.push_back(obj);
     }
     return res;
+}
+
+void LmFactory::addHeuristicOrderings(LandmarkGraph* g) {
+
 }

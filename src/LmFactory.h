@@ -8,6 +8,7 @@
 
 #include "model.h"
 #include "PINode.h"
+#include "LandmarkGraph.h"
 
 class LmFactory {
 public:
@@ -20,6 +21,7 @@ public:
 
     bool containedInS0(PINode *pNode);
     PINode* getPINode(Fact &f);
+    void addHeuristicOrderings(LandmarkGraph* g);
 };
 
 
