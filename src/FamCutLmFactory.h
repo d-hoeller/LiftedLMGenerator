@@ -20,10 +20,22 @@
 
 using namespace std;
 
+
+//struct candidate {
+//    int prec;
+//    int del;
+//    vector<pair<int,int>> adds;
+//    int famLit;
+//    set<int> freeActionVars;
+//};
+
 struct FAMmodifier {
     int action;
+    set<int> freeActionVars;
     int prec;
+    int precFamLit;
     int add;
+    int addFamLit;
     vector<int> staticPrecs;
 };
 
@@ -39,8 +51,6 @@ class FamCutLmFactory : public LmFactory{
     int getFAMMatch(PINode *n);
 
     void printFamGroup(int i);
-
-    bool isCompatible(Task &t, PredicateWithArguments &arguments, FAMGroup &group);
 
     bool isNormalArc(int action, int relPrec, int relDel);
 
@@ -83,6 +93,14 @@ public:
     vector<Fact> *gets0Def(PINode *pNode);
 
     LandmarkGraph *generateAchieverNodes(PINode *pNode);
+
+    LandmarkGraph *generateActionNodes(PINode *pNode);
+
+    void getFamModifiers(vector<FAMGroup> &fg);
+    bool isCompatible(Task &t, PredicateWithArguments &arguments, FAMGroup &group);
+    bool isCompatible(Task &t, PredicateWithArguments &arguments, FAMGroup &group, int iLit);
+
+    void printModifiers(vector<FAMGroup> &fg);
 };
 
 

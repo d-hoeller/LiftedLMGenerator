@@ -29,115 +29,9 @@ FamCutLmFactory::FamCutLmFactory(Domain d, Problem p, vector<FAMGroup> fg) : LmF
 //        }
 //    }
 
-    modifier = new vector<FAMmodifier *>[fg.size()];
-    for (int iFAM = 0; iFAM < fg.size(); iFAM++) {
-        for (int i = 0; i < domain.tasks.size(); i++) {
-            vector<int> relevantPrecs;
-            vector<int> relevantAdds;
-            vector<int> relevantDels;
-            for (int k = 0; k < domain.tasks[i].preconditions.size(); k++) {
-                if (isCompatible(domain.tasks[i], domain.tasks[i].preconditions[k], fg[iFAM])) {
-                    relevantPrecs.push_back(k);
-                }
-            }
-            for (int k = 0; k < domain.tasks[i].effectsAdd.size(); k++) {
-                if (isCompatible(domain.tasks[i], domain.tasks[i].effectsAdd[k], fg[iFAM])) {
-                    relevantAdds.push_back(k);
-                }
-            }
-            for (int k = 0; k < domain.tasks[i].effectsDel.size(); k++) {
-                if (isCompatible(domain.tasks[i], domain.tasks[i].effectsDel[k], fg[iFAM])) {
-                    relevantDels.push_back(k);
-                }
-            }
-            cout << "(" << domain.tasks[i].name;
-            for (int j = 0; j < domain.tasks[i].variableSorts.size(); j++) {
-                int s = domain.tasks[i].variableSorts[j];
-                cout << " v" << j << " - " << domain.sorts[s].name;
-            }
-            cout << ")" << endl << ":preconditions" << endl;
-            for (int j: relevantPrecs) {
-                int p = domain.tasks[i].preconditions[j].predicateNo;
-                cout << "   (" << domain.predicates[p].name;
-                for (int k = 0; k < domain.tasks[i].preconditions[j].arguments.size(); k++) {
-                    cout << " v" << domain.tasks[i].preconditions[j].arguments[k];
-                }
-                cout << ")" << endl;
-            }
-            cout << ":effects" << endl;
-            for (int j: relevantAdds) {
-                int p = domain.tasks[i].effectsAdd[j].predicateNo;
-                cout << "   (" << domain.predicates[p].name;
-                for (int k = 0; k < domain.tasks[i].effectsAdd[j].arguments.size(); k++) {
-                    cout << " v" << domain.tasks[i].effectsAdd[j].arguments[k];
-                }
-                cout << ")" << endl;
-            }
-            for (int j: relevantDels) {
-                int p = domain.tasks[i].effectsDel[j].predicateNo;
-                cout << "   (not (" << domain.predicates[p].name;
-                for (int k = 0; k < domain.tasks[i].effectsDel[j].arguments.size(); k++) {
-                    cout << " v" << domain.tasks[i].effectsDel[j].arguments[k];
-                }
-                cout << "))" << endl;
-            }
-
-            // try to fix wrong counts
-            if ((relevantPrecs.size() > 1) && (relevantAdds.size() == 1) && (relevantDels.size() == 1)) {
-                // looking for one matching the delete effect
-                int count = 0;
-                int matchID = -1;
-                auto delEff = domain.tasks[i].effectsDel[relevantDels[0]];
-                for (int m = 0; m < relevantPrecs.size(); m++) {
-                    auto prec = domain.tasks[i].preconditions[relevantPrecs[m]];
-                    if (prec.predicateNo != delEff.predicateNo) {
-                        continue;
-                    }
-
-                    bool match = true;
-                    for (int n = 0; n < prec.arguments.size(); n++) {
-                        if (prec.arguments[n] != delEff.arguments[n]) {
-                            match = false;
-                            break;
-                        }
-                    }
-                    if (match) {
-                        count++;
-                        matchID = relevantPrecs[m];
-                    }
-                }
-                if (count == 1) {
-                    relevantPrecs.clear();
-                    relevantPrecs.push_back(matchID);
-                }
-            }
-
-            if (relevantAdds.empty() && relevantDels.empty()) {
-                // maybe a precondition, no effect: not interesting, not harmful
-            } else if ((relevantPrecs.size() == 1 && relevantAdds.size() == 0 && relevantDels.size() == 1)) {
-                cout << "- Found action decreasing FAM count (" << "Precs: " << relevantPrecs.size();
-                cout << ", Adds: " << relevantAdds.size() << ", Dels: " << relevantDels.size();
-                cout << ") this forms a dead end in the DTG and can be ignored." << endl;
-            } else if ((relevantPrecs.size() == 1 && relevantAdds.size() == 1 && relevantDels.size() == 1)
-                       && isNormalArc(i, relevantPrecs[0], relevantDels[0])) {
-                FAMmodifier *mod = new FAMmodifier;
-                mod->action = i;
-                mod->prec = relevantPrecs[0];
-                mod->add = relevantAdds[0];
-                this->modifier[iFAM].push_back(mod);
-                //cout << "MOD: " << iFAM << " " << mod->action << " " <<domain.tasks[mod->action].name << endl;
-            } else if (!isNormalArc(i, relevantPrecs[0], relevantDels[0])) {
-                cout << "ERROR: arc is not normal." << endl;
-                exit(-1);
-            } else {
-                cout << "ERROR: Relevant sizes do not match." << endl;
-                cout << "Precs: " << relevantPrecs.size() << endl;
-                cout << "Adds: " << relevantAdds.size() << endl;
-                cout << "Dels: " << relevantDels.size() << endl;
-                exit(-1);
-            }
-        }
-    }
+    getFamModifiers(fg);
+    printModifiers(fg);
+    exit(0);
 
     //
     // calculate static predicates
@@ -173,6 +67,176 @@ FamCutLmFactory::FamCutLmFactory(Domain d, Problem p, vector<FAMGroup> fg) : LmF
         cout << "No static predicates detected." << endl;
     }
 }
+
+void FamCutLmFactory::getFamModifiers(vector<FAMGroup> &fg) {
+    this->modifier = new vector<FAMmodifier *>[fg.size()];
+    for (int iFAM = 0; iFAM < fg.size(); iFAM++) {
+        for (int iTask = 0; iTask < domain.tasks.size(); iTask++) {
+            auto task = domain.tasks[iTask];
+            for (int iPrec = 0; iPrec < task.preconditions.size(); iPrec++) {
+                for (int precLit = 0; precLit < fg[iFAM].literals.size(); precLit++) {
+                    if (isCompatible(task, task.preconditions[iPrec], fg[iFAM], precLit)) {
+                        FAMmodifier *c = new FAMmodifier();
+                        auto prec = task.preconditions[iPrec];
+                        for (int i = 0; i < prec.arguments.size(); i++) {
+                            const int iFamVar = famGroups[iFAM].literals[precLit].args[i];
+                            if (!famGroups[iFAM].vars[iFamVar].isCounted) { // this is a free variable
+                                c->freeActionVars.insert(prec.arguments[i]);
+                            }
+                        }
+
+                        int delEffect = -1;
+                        for (int i = 0; i < task.effectsDel.size(); i++) {
+                            auto del = task.effectsDel[i];
+                            if (del.predicateNo != prec.predicateNo) continue;
+                            bool identical = true;
+                            for (int ip = 0; ip < del.arguments.size(); ip++) {
+                                if (prec.arguments[ip] != del.arguments[ip]) {
+                                    identical = false;
+                                    break;
+                                }
+                            }
+                            if (identical) {
+                                delEffect = i;
+                                break;
+                            }
+                        }
+                        if (delEffect < 0) {continue;}
+
+                        vector<pair<int,int>> adds;
+                        for (int i = 0; i < task.effectsAdd.size(); i++) {
+                            auto add = task.effectsAdd[i];
+                            for (int addLit = 0; addLit < fg[iFAM].literals.size(); addLit++) {
+                                if (!isCompatible(task, add, fg[iFAM], addLit)) {
+                                    continue;
+                                }
+                                // check for free variables
+                                bool isIncompatible = false;
+                                for (int j = 0; j < fg[iFAM].literals[addLit].args.size(); j++) {
+                                    const int famVarIndex = fg[iFAM].literals[addLit].args[j];
+                                    auto famVar = fg[iFAM].vars[famVarIndex];
+                                    const bool actionVarIsCounted = (c->freeActionVars.find(add.arguments[j]) == c->freeActionVars.end());
+                                    if (famVar.isCounted != actionVarIsCounted) {
+                                        isIncompatible = true;
+                                        break;
+                                    }
+                                }
+                                if (!isIncompatible) {
+                                   adds.push_back(make_pair(i, addLit));
+                                }
+                            }
+                        }
+                        if (adds.size() == 1) {
+                            c->action = iTask;
+                            c->prec = iPrec;
+                            c->precFamLit = precLit;
+                            c->addFamLit = adds[0].second;
+                            c->add = adds[0].first;
+                            modifier[iFAM].push_back(c);
+                        } else if (adds.size() > 1) {
+                            cout << "ERROR: Relevant sizes do not match." << endl;
+                            exit(-1);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+void FamCutLmFactory::printModifiers(vector<FAMGroup> &fg) {
+    for (int iFAM = 0; iFAM < fg.size(); iFAM++) {
+        printFamGroup(iFAM);
+        cout << "Modifiers:" << endl;
+        for (auto m : modifier[iFAM]) {
+            auto task = domain.tasks[m->action];
+            cout << "- " << task.name << endl;
+            cout << "  action's free vars:";
+            for (int var : m->freeActionVars) {
+                cout << " v" << var;
+            }
+            cout << endl;
+            cout << "  FAM literals " << m->precFamLit << " -> " << m->addFamLit << endl;
+            auto prec = task.preconditions[m->prec];
+            cout << "  from " << m->prec << ":(" << domain.predicates[prec.predicateNo].name;
+            for (int k = 0; k < prec.arguments.size(); k++) {
+                cout << " v" << prec.arguments[k];
+            }
+            cout << ")" << endl;
+
+            auto add = task.effectsAdd[m->add];
+            cout << "    to " << m->prec << ":(" << domain.predicates[add.predicateNo].name;
+            for (int k = 0; k < add.arguments.size(); k++) {
+                cout << " v" << add.arguments[k];
+            }
+            cout << ")" << endl;
+        }
+    }
+}
+
+bool FamCutLmFactory::isCompatible(Task &t, PredicateWithArguments &lit, FAMGroup &fg) {
+    for (int iLit = 0; iLit < fg.literals.size(); iLit++) {
+        if(isCompatible(t,lit,fg, iLit)) return true;
+    }
+    return false;
+}
+
+// a package might be "AT a position" or "IN a truck" -> these are the literals
+bool FamCutLmFactory::isCompatible(Task &t, PredicateWithArguments &lit, FAMGroup &fg, int iLit) {
+    int p = lit.predicateNo;
+    if (fg.literals[iLit].predicateNo == p) {
+        bool match = true;
+        for (int iArg = 0; iArg < fg.literals[iLit].args.size(); iArg++) { // loop params
+            if (!fg.literals[iLit].isConstant[iArg]) { // todo: what if it is?
+                // check variable types
+                int sFG = fg.vars[fg.literals[iLit].args[iArg]].sort;
+                int iVar = lit.arguments[iArg];
+                int sPrec = t.variableSorts[iVar];
+
+                if (sFG == sPrec) {
+                    continue; // check next variable
+                } else {
+                    bool intersects = false;
+                    for (int c: domain.sorts[sPrec].members) {
+                        if (domain.sorts[sFG].members.find(c) != domain.sorts[sFG].members.end()) {
+                            intersects = true;
+                            break;
+                        }
+                    }
+                    if (intersects) {
+                        continue; // check next variable
+                    }
+                }
+                match = false;
+            }
+        }
+        if (match) { return true; }
+    }
+    return false;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 void FamCutLmFactory::generateLMs() {
     // initialize graph with goal nodes and start generation
@@ -237,6 +301,8 @@ int FamCutLmFactory::getFAMMatch(PINode* node) {
 }
 
 void FamCutLmFactory::lmDispatcher(LandmarkGraph* lmg, int nodeID) {
+    lmg->showDot(domain, true);
+
     auto node = lmg->getNode(nodeID);
     if ((node->isAND) || (node->lm.size() == 1)) {
         if (node->isFactLM) {
@@ -250,10 +316,14 @@ void FamCutLmFactory::lmDispatcher(LandmarkGraph* lmg, int nodeID) {
                 LandmarkGraph *subgraph;
                 if (iFamGroup >= 0) {
                     subgraph = generateLMs(n, iFamGroup);
-                } else { // this is a LM not contained in a FAM-Group -> generate NSG
-                    subgraph = generateAchieverNodes(n);
+                } else { // this is a LM not contained in a FAM-Group
+                    //subgraph = generateAchieverNodes(n);
+                    subgraph = generateActionNodes(n);
                 }
+//                lmg->showDot(domain, true);
                 vector<int> *newIDs = lmg->merge(node->nodeID, subgraph, 0); // todo: which type?
+//                lmg->showDot(domain, true);
+//                exit(-1);
                 for (int n: *newIDs) {
                     lmDispatcher(lmg, n);
                 }
@@ -716,50 +786,6 @@ void FamCutLmFactory::printFamGroup(int i) {
     std::cout << " }" << std::endl;
 }
 
-bool FamCutLmFactory::isCompatible(Task &t, PredicateWithArguments &lit, FAMGroup &fg) {
-    int p = lit.predicateNo;
-    for (int iLit = 0; iLit < fg.literals.size(); iLit++) { // a package might be "AT a position" or "IN a truck" -> these are the literals
-        if (fg.literals[iLit].predicateNo == p) {
-            bool match = true;
-            for (int iArg = 0; iArg < fg.literals[iLit].args.size(); iArg++) { // loop params
-                if (!fg.literals[iLit].isConstant[iArg]) { // todo: what if it is?
-                    // check variable types
-                    int sFG = fg.vars[fg.literals[iLit].args[iArg]].sort;
-                    int iVar = lit.arguments[iArg];
-                    int sPrec = t.variableSorts[iVar];
-
-                    if (sFG == sPrec) {
-                        continue; // check next variable
-                    } else {
-                        bool intersects = false;
-                        for (int c: domain.sorts[sPrec].members) {
-                            if (domain.sorts[sFG].members.find(c) != domain.sorts[sFG].members.end()) {
-//                        cout << endl << "FAM-Lit: (" << domain.sorts[sFG].name << ") ";
-//                        for (int obj : domain.sorts[sFG].members) {
-//                            cout << domain.constants[obj] << " ";
-//                        }
-//                        cout << endl << "Prec: (" << domain.sorts[sPrec].name << ") ";
-//                        for (int obj : domain.sorts[sPrec].members) {
-//                            cout << domain.constants[obj] << " ";
-//                        }
-//                        cout << endl;
-//                                cout << domain.constants[c] << " ";
-                                intersects = true;
-                                break;
-                            }
-                        }
-                        if (intersects) {
-                            continue; // check next variable
-                        }
-                    }
-                    match = false;
-                }
-            }
-            if (match) { return true; }
-        }
-    }
-    return false;
-}
 
 bool FamCutLmFactory::isNormalArc(int action, int relPrec, int relDel) {
     myassert((action >= 0) && (action < domain.tasks.size()));
@@ -902,6 +928,8 @@ vector<Fact> *FamCutLmFactory::gets0Def(PINode *pNode) {
 LandmarkGraph *FamCutLmFactory::generateAchieverNodes(PINode *n) {
     NecSubLmFactory nsl(domain, problem);
     LandmarkGraph *g = nsl.getLandmarks(n);
+    g->showDot(domain, true);
+    exit(0);
     LandmarkGraph *res = new LandmarkGraph();
     n->printFact(domain);
     const int p = n->schemaIndex;
@@ -912,3 +940,28 @@ LandmarkGraph *FamCutLmFactory::generateAchieverNodes(PINode *n) {
     exit(-1);
     return res;
 }
+
+LandmarkGraph *FamCutLmFactory::generateActionNodes(PINode *n) {
+    LandmarkGraph *g = new LandmarkGraph();
+    const int p = n->schemaIndex;
+    Landmark *achieverLM = new Landmark(ActionOR);
+    for (pair<int, int> ach: achiever[p]) {
+        const int iA = ach.first;
+        const int iEff = ach.second;
+        PINode* action = new PINode();
+        action->schemaIndex = iA;
+        for (int i = 0; i < domain.tasks[iA].variableSorts.size(); i++) {
+            action->consts.push_back(-1);
+        }
+        auto eff = domain.tasks[iA].effectsAdd[iEff];
+        for (int i = 0; i < eff.arguments.size(); i++) {
+            const int var = eff.arguments[i];
+            const int obj = n->consts[i];
+            action->consts[var] = obj;
+        }
+        achieverLM->lm.insert(action);
+    }
+    g->addNode(achieverLM);
+    return g;
+}
+
