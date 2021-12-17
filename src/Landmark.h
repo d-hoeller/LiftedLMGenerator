@@ -46,7 +46,7 @@ public:
     Landmark(Landmark *that);
     Landmark();
 
-    int nodeID;
+    int nodeID = -1;
 
     void makeDummy(string name);
 
