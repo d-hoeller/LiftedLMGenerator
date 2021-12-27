@@ -97,8 +97,8 @@ public:
     LandmarkGraph *generateActionNodes(PINode *pNode);
 
     void getFamModifiers(vector<FAMGroup> &fg);
-    bool isCompatible(Task &t, PredicateWithArguments &arguments, FAMGroup &group);
-    bool isCompatible(Task &t, PredicateWithArguments &arguments, FAMGroup &group, int iLit);
+    bool isCompatible(Domain &d, int iT, PredicateWithArguments &arguments, FAMGroup &group);
+    bool isCompatible(Domain &d, int iT, PredicateWithArguments &actionLit, FAMGroup &group, int iLit);
 
     void printModifiers(vector<FAMGroup> &fg);
 };
