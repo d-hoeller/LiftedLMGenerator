@@ -203,7 +203,7 @@ void LandmarkGraph::writeToFile(string filename, Domain domain) {
     dotfile << ";; 3. int: 1 = number of elements that are connected with connector given in 2\n";
     dotfile << ";; 4. int indicating whether the LM is contained in an ordering relation or not (0 if not contained, 1 if contained)\n";
     dotfile << "LMs\n";
-    dotfile << this->N.size() << "\n";
+    dotfile << this->N.size() - 1 << "\n";
 
     map<int, int> nodeID2line;
     int line = 0;
