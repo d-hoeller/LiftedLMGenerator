@@ -48,17 +48,17 @@ bool PINode::abstractionOf(PINode *that) {
     return true;
 }
 
-void PINode::printFact(Domain &domain) {
-    cout << "(" << domain.predicates[this->schemaIndex].name;
+void PINode::printFact(Domain &domain, ostream& stream) {
+    stream << "(" << domain.predicates[this->schemaIndex].name;
     for (int k = 0; k < this->consts.size(); k++) {
         int obj = this->consts[k];
         if(obj < 0) {
-            cout << " ?" << (-1 * obj);
+            stream << " ?" << (-1 * obj);
         } else {
-            cout << " " << domain.constants[obj];
+            stream << " " << domain.constants[obj];
         }
     }
-    cout << ")";
+    stream << ")";
 }
 
 void PINode::printAction(Domain &domain) {

@@ -11,6 +11,8 @@
 #include "duplicate.h"
 //#include "LDTG.h"
 #include "FamCutLmFactory.h"
+#include "CG.h"
+#include <chrono>
 
 using namespace std;
 
@@ -53,7 +55,7 @@ void run_grounding (const Domain & domain, const Problem & problem, std::ostream
             //cout << "conditional effects " << domain.tasks[i].conditionalAdd.size() << " " << domain.tasks[i].conditionalDel.size() << endl;
             cout << endl;
         }
-
+/*
         cout << endl << "s0:" << endl;
         for (int i = 0; i < problem.init.size(); i++) {
             int pred = problem.init[i].predicateNo;
@@ -75,10 +77,15 @@ void run_grounding (const Domain & domain, const Problem & problem, std::ostream
             }
             cout << ")" << endl;
         }
-
+*/
         famGroups = compute_FAM_mutexes(domain, problem, config);
         FamCutLmFactory *lms = new FamCutLmFactory(domain, problem, famGroups);
+        auto start = std::chrono::high_resolution_clock::now();
+        cout << "Generating landmarks" << endl;
         lms->generateLMs();
+        auto finish = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = finish - start;
+        std::cout << "- [lmGenTime=" << elapsed.count() << "]\n";
     }
     exit(0);
 

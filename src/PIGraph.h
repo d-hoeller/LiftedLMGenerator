@@ -38,6 +38,8 @@ public:
     void showDot(Domain domain);
 
     PINode *getNode(int nodeID);
+
+    void replaceWildcard(int from, int to);
 };
 
 

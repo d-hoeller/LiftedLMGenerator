@@ -79,7 +79,7 @@ void PIGraph::showDot(Domain domain) {
         for (int k = 0; k < n->consts.size(); k++) {
             int obj = n->consts[k];
             if (obj < 0) {
-                dotfile << " ?";
+                dotfile << " ?" << (-1 * obj);
             } else {
                 dotfile << " " << domain.constants[obj];
             }
@@ -97,12 +97,12 @@ void PIGraph::showDot(Domain domain) {
                 for (int i = 0; i < arc->ArcLabel->consts.size(); i++) {
                     int obj = arc->ArcLabel->consts[i];
                     if(obj < 0) {
-                        dotfile << " ?";
+                        dotfile << " ?" << (-1 * obj);
                     } else {
                         dotfile << " " << domain.constants[obj];
                     }
                 }
-                dotfile << "\"]\n";
+                dotfile << ")\"]\n";
             }
         }
     }
@@ -118,4 +118,25 @@ PINode *PIGraph::getNode(int nodeID) {
         }
     }
     return nullptr;
+}
+
+void PIGraph::replaceWildcard(int from, int to) {
+    for (auto n: N) {
+        for (int i = 0; i < n->consts.size(); i++) {
+            if (n->consts[i] == from) {
+                n->consts[i] = to;
+            }
+        }
+    }
+    for (auto arcFrom: successors) {
+        for (auto arcTo: arcFrom.second) {
+            for (auto arc: arcTo.second) {
+                for (int i = 0; i < arc->ArcLabel->consts.size(); i++) {
+                    if (arc->ArcLabel->consts[i] == from) {
+                        arc->ArcLabel->consts[i] = to;
+                    }
+                }
+            }
+        }
+    }
 }

@@ -51,6 +51,7 @@ class FamCutLmFactory : public LmFactory{
     int getFAMMatch(PINode *n);
 
     void printFamGroup(int i);
+    void printFamGroup(FAMGroup &fg, ostream& stream);
 
     bool isNormalArc(int action, int relPrec, int relDel);
 
@@ -84,9 +85,9 @@ public:
 
     LandmarkGraph *generateNodeLMs(PIGraph &dtg, PINode *targetNode, int initialNodeID);
 
-    PINode *getInitNode(const FAMGroup &fam, const vector<int> &setFreeVars);
+    PINode *getInitNode(FAMGroup &fam, vector<int> &setFreeVars);
 
-    LandmarkGraph *generatePrecNodes(Landmark *pLandmark);
+    LandmarkGraph *generatePrecNodes(PINode *actionNode);
 
     void myassert(bool b);
 
@@ -101,6 +102,8 @@ public:
     bool isCompatible(Domain &d, int iT, PredicateWithArguments &actionLit, FAMGroup &group, int iLit);
 
     void printModifiers(vector<FAMGroup> &fg);
+
+    LandmarkGraph *generatePrecIntersection(Landmark *pLandmark);
 };
 
 

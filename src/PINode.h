@@ -27,7 +27,7 @@ public:
     bool abstractionOf(PINode *pGnode);
     bool abstractionNotEqOf(PINode *pGnode);
 
-    void printFact(Domain &domain);
+    void printFact(Domain &domain, ostream& stream);
     void printAction(Domain &domain);
 };
 

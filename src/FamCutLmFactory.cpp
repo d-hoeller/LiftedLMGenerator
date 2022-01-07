@@ -10,6 +10,9 @@
 #include <map>
 #include <cassert>
 
+bool printIntermediateLMSets = false;
+bool printDTGs = false;
+
 FamCutLmFactory::FamCutLmFactory(Domain d, Problem p, vector<FAMGroup> fg) : LmFactory(d, p) {
     this->famGroups = fg;
 
@@ -31,7 +34,9 @@ FamCutLmFactory::FamCutLmFactory(Domain d, Problem p, vector<FAMGroup> fg) : LmF
 
     getFamModifiers(fg);
     printModifiers(fg);
+//    exit(0);
 
+/*
     ofstream dotfile;
     dotfile.open ("cg.dot");
     dotfile << "digraph {\n";
@@ -72,7 +77,7 @@ FamCutLmFactory::FamCutLmFactory(Domain d, Problem p, vector<FAMGroup> fg) : LmF
     dotfile << "}\n";
     dotfile.close();
     //system("xdot cg.dot");
-
+*/
     //
     // calculate static predicates
     //
@@ -306,9 +311,11 @@ void FamCutLmFactory::generateLMs() {
     for (int id: todo) {
         lmDispatcher(lmg, id);
     }
-    //lmg->showDot(domain, true);
+//    lmg->showDot(domain, true);
+    cout << "- [numLMs=" << (lmg->N.size() - 1) << "]\n";
     lmg->prune(0, invariant);
-    lmg->showDot(domain, true);
+    lmg->showDot(domain, false);
+    cout << "- [numPrunedLMs=" << (lmg->N.size() - 1) << "]\n";
     lmg->writeToFile("LMs.txt", domain);
 }
 
@@ -347,7 +354,9 @@ int FamCutLmFactory::getFAMMatch(PINode* node) {
 }
 
 void FamCutLmFactory::lmDispatcher(LandmarkGraph* lmg, int nodeID) {
-    //lmg->showDot(domain, true);
+    if (printIntermediateLMSets) {
+        lmg->showDot(domain, true);
+    }
 
     auto node = lmg->getNode(nodeID);
     if ((node->isAND) || (node->lm.size() == 1)) {
@@ -364,6 +373,7 @@ void FamCutLmFactory::lmDispatcher(LandmarkGraph* lmg, int nodeID) {
                     subgraph = generateLMs(n, iFamGroup);
                 } else { // this is a LM not contained in a FAM-Group
                     //subgraph = generateAchieverNodes(n);
+                    cout << "- LM not contained in a FAM-Group, generating action nodes" << endl;
                     subgraph = generateActionNodes(n);
                 }
 //                lmg->showDot(domain, true);
@@ -376,40 +386,44 @@ void FamCutLmFactory::lmDispatcher(LandmarkGraph* lmg, int nodeID) {
 //                delete newIDs;
             }
         } else { // this is an action landmark
-            LandmarkGraph *subgraph = generatePrecNodes(node);
+            LandmarkGraph *subgraph = generatePrecNodes(*node->lm.begin());
+            //subgraph->showDot(domain, true);
+//            lmg->showDot(domain, true);
             vector<int> *newIDs = lmg->merge(node->nodeID, subgraph, 0); // todo: which type?
+//            lmg->showDot(domain, true);
             for (int n : *newIDs) {
                 lmDispatcher(lmg, n);
             }
 //            cout << "What to do?" << endl;
 //            exit(13);
         }
-    } else {
+    } else { // is an OR landmark
 //        lmg->showDot(domain);
-        cout << "What to do?: " << endl;
         if (node->isFactLM) {
+           cerr << "WARNING: Unimplemented feature \"fact or landmark\": " << endl;
            for (auto n: node->lm) {
-               n->printFact(domain);
-               cout << endl;
+               n->printFact(domain, cerr);
+               cerr << endl;
            }
+            cerr << "Generation is continued, but no further LMs are generated based on this one." << endl;
         } else {
-            for (auto n: node->lm) {
-                n->printAction(domain);
-                cout << endl;
+            LandmarkGraph *subgraph = generatePrecIntersection(node);
+            vector<int> *newIDs = lmg->merge(node->nodeID, subgraph, 0); // todo: which type?
+            for (int n : *newIDs) {
+                lmDispatcher(lmg, n);
             }
         }
-        cout << "---> skipping" << endl;
 //        exit(12);
     }
 }
 
-LandmarkGraph *FamCutLmFactory::generatePrecNodes(Landmark *pLandmark) {
+LandmarkGraph *FamCutLmFactory::generatePrecNodes(PINode *actionNode) {
     cout << "- generating precondition nodes for action LM \"";
-    (*pLandmark->lm.begin())->printAction(domain);
+    actionNode->printAction(domain);
     cout << "\"" << endl;
 
     LandmarkGraph *res = new LandmarkGraph();
-    PINode* piAction = *pLandmark->lm.begin();
+    PINode* piAction = actionNode;
     auto action = domain.tasks[piAction->schemaIndex];
     for (auto prec: action.preconditions) {
         PINode* precNode = new PINode();
@@ -429,7 +443,7 @@ LandmarkGraph *FamCutLmFactory::generatePrecNodes(Landmark *pLandmark) {
 
 LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
     cout << "- generating DTG for LM \"";
-    node->printFact(domain);
+    node->printFact(domain, cout);
     cout << "\"" << endl;
 
     FAMGroup fam = famGroups[iFamGroup];
@@ -461,6 +475,9 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
     // - get starting point of that particular "free variable"
 
     PINode *s0Node = getInitNode(fam, setFreeVars);
+    if (s0Node == nullptr) {
+        return new LandmarkGraph();
+    }
 
 //    unordered_set<PINode *, PINodeHasher, PINodeComparator> N;
     PIGraph graph;
@@ -471,10 +488,11 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
     N_last->push_back(s0Node);
 
     bool groundFAMVars = false;
+    int varID = -1;
     while (!N_last->empty()) {
         for (auto n: *N_last) {
             cout << "  - generating successors for \"";
-            n->printFact(domain);
+            n->printFact(domain, cout);
             cout << "\"" << endl;
 
             // need actions where
@@ -482,14 +500,14 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
             // - static preconditions hold
             for (auto arc: modifier[iFamGroup]) {
                 int a = arc->action;
-                int numVars = domain.tasks[a].variableSorts.size();
-                PINode *partInstAction = new PINode;
-                for (int i = 0; i < numVars; i++) {
-                    partInstAction->consts.push_back(-1); // todo: here is a -1
-                }
                 auto prec = domain.tasks[a].preconditions[arc->prec];
-                partInstAction->schemaIndex = a;
-                if ((prec.predicateNo == n->schemaIndex) && (isCompatible(domain, a, prec, fam))) {
+                if ((prec.predicateNo == n->schemaIndex) && (isCompatible(domain, a, prec, fam, arc->precFamLit))) {
+                    int numVars = domain.tasks[a].variableSorts.size();
+                    PINode *partInstAction = new PINode;
+                    for (int i = 0; i < numVars; i++) {
+                        partInstAction->consts.push_back(varID--); // todo: here is a -1
+                    }
+                    partInstAction->schemaIndex = a;
                     // determine bindings by precondition belonging to FAM group
                     for (int iPrec = 0; iPrec < prec.arguments.size(); iPrec++) {
                         const int var = prec.arguments[iPrec];
@@ -510,7 +528,7 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
                             partInstPrec->consts.push_back(partInstAction->consts[var]);
                         }
                         cout << "      - analyzing static prec \"";
-                        partInstPrec->printFact(domain);
+                        partInstPrec->printFact(domain, cout);
                         cout << "\": ";
 
                         vector<Fact>* s0d = gets0Def(partInstPrec);
@@ -528,7 +546,7 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
                                     partInstAction->printAction(domain);
                                     cout << "\"." << endl;
                                 } else if (partInstAction->consts[var] != obj) {
-                                    cout << "unfulfilled -> no new ar.c" << endl;
+                                    cout << "unfulfilled -> no new arc" << endl;
                                     incompatible = true;
                                     break;
                                 } else {
@@ -596,14 +614,28 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
                             graph.addNode(partInstEffect);
                             to = partInstEffect->nodeID;
                             N_this->push_back(partInstEffect);
+
+                            graph.addArc(n->nodeID, to, action);
                         } else {
                             to = (*iter)->nodeID;
+                            graph.addArc(n->nodeID, to, action);
+
+                            for (int i = 0; i < partInstEffect->consts.size(); i++) {
+                                int from = partInstEffect->consts[i];
+                                int to = (*iter)->consts[i];
+                                if ((from < 0) && (from != to)) {
+                                    cout << "      - need to adapt bindings" << endl << "        ";
+                                    partInstEffect->printFact(domain, cout);
+                                    cout << endl << "         and "<< endl << "        ";
+                                    (*iter)->printFact(domain, cout);
+                                    cout << endl;
+                                    graph.replaceWildcard(from, to);
+                                }
+                            }
                         }
 
-                        // add arcs
-                        graph.addArc(n->nodeID, to, action);
                         cout << "    - target node is \"";
-                        partInstEffect->printFact(domain);
+                        partInstEffect->printFact(domain, cout);
                         cout << "\"" << endl;
                     }
                 }
@@ -616,9 +648,12 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
         N_last = N_this;
         N_this = temp;
     }
-//    graph.showDot(domain);
+    if (printDTGs) {
+        graph.showDot(domain);
+    }
 //    LandmarkGraph *gNew = generateNodeLMs(graph, node, s0Node->nodeID);
     LandmarkGraph *gNew = generateCutLMs(graph, node, s0Node->nodeID);
+//    gNew->showDot(domain, true);
     return gNew;
 
 //    if (this->nodeBasedLMs) {
@@ -655,7 +690,7 @@ LandmarkGraph* FamCutLmFactory::generateNodeLMs(PIGraph &dtg, PINode *targetNode
             dtg.deactivatedNodes.insert(n->nodeID);
             if (!dtg.reachable(from, goalNodes)) {
                 cout << "- ";
-                n->printFact(domain);
+                n->printFact(domain, cout);
                 cout << " is a LM" << endl;
                 Landmark* newLMNode = new Landmark(n, FactAND); // need to copy, otherwise the id will be overwritten
                 result->addNode(newLMNode);
@@ -674,37 +709,65 @@ LandmarkGraph* FamCutLmFactory::generateCutLMs(PIGraph &dtg, PINode *targetNode,
     from.insert(initialNodeID);
     set<int> goalZone;
     set<int> newGoalZone;
+    map<int, int> binding;
+    cout << "  - searching for ";
+    targetNode->printFact(domain, cout);
+    cout << endl;
     for (PINode *n: dtg.N) {
         if (n->abstractionOf(targetNode)) {
             goalZone.insert(n->nodeID);
+            cout << "    - found ";
+            n->printFact(domain, cout);
+            cout << endl;
+            for (int i = 0; i < targetNode->consts.size(); i++) { // target node might be more specific
+                if (targetNode->consts[i] != n->consts[i]) {
+                    binding[n->consts[i]] = targetNode->consts[i];
+                    if (targetNode->consts[i] >= 0) {
+                        cout << "      - mapping ?" << (-1 * n->consts[i]) << " to " << domain.constants[targetNode->consts[i]] << endl;
+                    } else {
+                        cout << "      - mapping ?" << (-1 * n->consts[i]) << " to ?" << (-1 * targetNode->consts[i]) << endl;
+                    }
+                }
+            }
         }
     }
 
     if (goalZone.size() == 0) {
-        cout << "Target node: ";
-        targetNode->printFact(domain);
-        cout << endl;
-        dtg.showDot(domain);
-        cout << "ERROR: goal zone is empty" << endl;
+        cerr << "Target node: ";
+        targetNode->printFact(domain, cerr);
+        cerr << endl;
+//        dtg.showDot(domain);
+        cerr << "ERROR: goal zone is empty" << endl;
         exit(-1);
     }
     bool goalReached = false;
     int lastCut = -1;
     while (!goalReached) {
+        cout << "    - new cut, nodes in goal zone" << endl;
         Landmark* cut = new Landmark(ActionOR);
         //unordered_set<PINode*, PINodeHasher, PINodeComparator> cut;
         newGoalZone.insert(goalZone.begin(), goalZone.end());
         //cout << "- nodes in goal zone: " << goalZone.size() << endl;
         for (auto n: goalZone) {
+            cout << "      - ";
+            dtg.getNode(n)->printFact(domain, cout);
             auto temp = dtg.predecessors.find(n);
+            cout << " incoming arcs: " << temp->second.size() << endl;
             if (temp != dtg.predecessors.end()) {
                 unordered_map<int, unordered_set<PIArc*>> arcs = temp->second;
                 for (auto arc : arcs) {
                     int predNode = arc.first;
-                    if (newGoalZone.find(predNode) == newGoalZone.end()) {
+                    if (goalZone.find(predNode) == goalZone.end()) {
                         newGoalZone.insert(predNode);
                         for (auto a : arc.second) {
-                            cut->lm.insert(a->ArcLabel);
+                            auto temp = new PINode(a->ArcLabel);
+                            for (int i = 0; i < temp->consts.size(); i++) {
+                                if (binding.find(temp->consts[i]) != binding.end()) {
+//                                    cout << " blub " << temp->consts[i] << " -> " << binding[temp->consts[i]] << endl;
+                                    temp->consts[i] = binding[temp->consts[i]];
+                                }
+                            }
+                            cut->lm.insert(temp);
                         }
                         if (from.find(predNode) != from.end()) {
                             goalReached = true;
@@ -714,7 +777,13 @@ LandmarkGraph* FamCutLmFactory::generateCutLMs(PIGraph &dtg, PINode *targetNode,
             }
         }
         assert(cut->lm.size() > 0);
-//        cout << "1" << endl;
+
+        cout << "    - actions in cut" << endl;
+        for (auto a: cut->lm) {
+            cout << "      - ";
+            a->printAction(domain);
+            cout << endl;
+        }
 
         if (cut->lm.size() > 1) {
             vector<PINode *> needToDelete;
@@ -753,10 +822,11 @@ LandmarkGraph* FamCutLmFactory::generateCutLMs(PIGraph &dtg, PINode *targetNode,
         newGoalZone = temp;
         newGoalZone.clear();
     }
+//    result->showDot(domain, true);
     return result;
 }
 
-PINode * FamCutLmFactory::getInitNode(const FAMGroup &fam, const vector<int> &setFreeVars) {
+PINode * FamCutLmFactory::getInitNode(FAMGroup &fam, vector<int> &setFreeVars) {
     PIGraph *s0 = new PIGraph();
     vector<PINode *> sameFAMNodes;
     for (int i = 0; i < problem.init.size(); i++) {
@@ -782,7 +852,7 @@ PINode * FamCutLmFactory::getInitNode(const FAMGroup &fam, const vector<int> &se
                 }
                 if (sameFAM) {
                     cout << "  - starting value is \"";
-                    n->printFact(domain);
+                    n->printFact(domain, cout);
                     cout << "\"" << endl;
                     sameFAMNodes.push_back(n);
                 }
@@ -790,46 +860,52 @@ PINode * FamCutLmFactory::getInitNode(const FAMGroup &fam, const vector<int> &se
         }
     }
     if (sameFAMNodes.size() != 1) {
-        exit(-17);
+        cerr << "WARNING: No starting value found for FAM group:" << endl;
+        cerr << "         Need to store type of wildcards to do better." << endl;
+        printFamGroup(fam, cerr);
+        cerr << "Generation is continued, but no further LMs are generated based on this one." << endl;
+        return nullptr;
     }
     return sameFAMNodes[0];
 }
 
 void FamCutLmFactory::printFamGroup(int i) {
     cout << std::endl << "FAM group " << i << " { ";
-    FAMGroup fg = famGroups[i];
+    printFamGroup(famGroups[i], cout);
+}
 
+void FamCutLmFactory::printFamGroup(FAMGroup &fg, ostream& stream) {
     for (int j = 0; j < fg.literals.size(); j++) {
         FAMGroupLiteral famLits = fg.literals[j];
-        std::cout << "(" << domain.predicates[famLits.predicateNo].name;
+        stream << "(" << domain.predicates[famLits.predicateNo].name;
         for (int k = 0; k < famLits.args.size(); k++) {
             int index = famLits.args[k];
-            std::cout << " ";
+            stream << " ";
             if (famLits.isConstant[k]) {
-                std::cout << domain.constants[index];
+                stream << domain.constants[index];
             } else {
-                std::cout << "v" << index;
+                stream << "v" << index;
             }
         }
         cout << ") ";
     }
-    std::cout << "}" << std::endl;
-    std::cout << "counted vars: {";
+    stream << "}" << std::endl;
+    stream << "counted vars: {";
     for (int j = 0; j < fg.vars.size(); j++) {
         FAMVariable v = fg.vars[j];
         if (v.isCounted)
-            std::cout << " [v" << j << " - " << domain.sorts[v.sort].name << "]";
+            stream << " [v" << j << " - " << domain.sorts[v.sort].name << "]";
     }
-    std::cout << " }" << std::endl;
+    stream << " }" << std::endl;
 
-    std::cout << "free vars:    {";
+    stream << "free vars:    {";
     for (int j = 0; j < fg.vars.size(); j++) {
         FAMVariable v = fg.vars[j];
         if (!v.isCounted) {
-            std::cout << " [v" << j << " - " << domain.sorts[v.sort].name << "]";
+            stream << " [v" << j << " - " << domain.sorts[v.sort].name << "]";
         }
     }
-    std::cout << " }" << std::endl;
+    stream << " }" << std::endl;
 }
 
 
@@ -946,7 +1022,7 @@ bool FamCutLmFactory::greater(StaticS0Def *A, int i, int* pivot, vector<int> *so
 
 void FamCutLmFactory::myassert(bool b) {
     if(!b) {
-        cout << "assertion failed" << endl;
+        cerr << "assertion failed" << endl;
         exit(-1);
     }
 }
@@ -977,7 +1053,7 @@ LandmarkGraph *FamCutLmFactory::generateAchieverNodes(PINode *n) {
     g->showDot(domain, true);
     exit(0);
     LandmarkGraph *res = new LandmarkGraph();
-    n->printFact(domain);
+    n->printFact(domain, cout);
     const int p = n->schemaIndex;
     for (pair<int, int> ach : achiever[p]) {
         cout << domain.tasks[ach.first].name << " ";
@@ -1009,5 +1085,54 @@ LandmarkGraph *FamCutLmFactory::generateActionNodes(PINode *n) {
     }
     g->addNode(achieverLM);
     return g;
+}
+
+LandmarkGraph *FamCutLmFactory::generatePrecIntersection(Landmark *node) {
+    bool empty = true;
+    set<PINode*, mycompare> *interSection = new set<PINode*, mycompare>();
+    set<PINode*, mycompare> *tempInterSection= new set<PINode*, mycompare>();
+
+    for (auto actionNode: node->lm) {
+        LandmarkGraph *subgraph = generatePrecNodes(actionNode);
+        auto precs = subgraph->N;
+//        subgraph->showDot(domain,true);
+        if (empty) {
+            empty = false;
+            for (auto lm: precs) {
+                interSection->insert(lm->getFirst());
+            }
+        } else {
+            tempInterSection->clear();
+            for (auto lm: precs) {
+                auto fact = lm->getFirst();
+                if (interSection->find(fact) != interSection->end()) {
+                    tempInterSection->insert(fact);
+                } else {
+                    for (auto fact2: *interSection){
+                        if (fact->abstractionOf(fact2)) {
+                            tempInterSection->insert(fact);
+                        } else if (fact2->abstractionOf(fact)) {
+                            tempInterSection->insert(fact2);
+                        }
+                    }
+                }
+            }
+            auto temp = tempInterSection;
+            tempInterSection = interSection;
+            interSection = temp;
+        }
+        if (interSection->empty()) {
+            break;
+        }
+    }
+    auto res = new LandmarkGraph();
+    for (auto n: *interSection) {
+        Landmark *lm = new Landmark(FactAND);
+        lm->lm.insert(n);
+        res->addNode(lm);
+    }
+    //res->showDot(domain, true);
+
+    return res;
 }
 
