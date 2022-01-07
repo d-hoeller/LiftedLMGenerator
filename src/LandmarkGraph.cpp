@@ -268,7 +268,7 @@ void LandmarkGraph::writeToFile(string filename, Domain domain) {
         for (auto iter2: iter.second) {
             int to = iter2.first;
             for (auto ord: iter2.second) {
-                dotfile << nodeID2line[from] << " " << nodeID2line[to] << " " << ord << "\n";
+                dotfile << nodeID2line[from] << " " << nodeID2line[to] << " " << 1 << "\n"; // todo: fix ordering
             }
         }
     }
