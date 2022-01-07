@@ -11,7 +11,7 @@
 #include "duplicate.h"
 //#include "LDTG.h"
 #include "FamCutLmFactory.h"
-#include "CG.h"
+//#include "CG.h"
 #include <chrono>
 
 using namespace std;
