@@ -1,43 +1,37 @@
 # pandaPIgrounder
-This is the grounder of pandaPI
+This is the code to generate landmarks based on a lifted planning model.
+
+The code is based on the execution stack of pandaPI. The LM generation code in this directory is based on the pandaPI's grounder (though we do no grounding).
 
 
 
 ## Building
-To compile pandaPIgrounder, you need to perform the following steps:
+To compile the code, you need to perform the following steps:
 
  - check out
  - git submodule init
  - git submodule update
- - cd cpdl
+ - cd cppdl
  - make boruvka opts bliss
 	- if you have lpsolve installed, you may also need to ```make lpsolve```
  - make
  - cd ../src
  - make
 
+Further, you need the pandaPI parser.
+
 ## Command line options
-The general syntax for a pandaPIgrounder call is
+
+If you start with a PDDL domain file and a PDDL problem file, you first need to call the parser, e.g.:
+
 ```
-./pandaPIgrounder INPUT OUTPUT
+pandaPIparser domain.pddl problem.pddl temp.parsed
 ```
 
-You may want to add one of the following command line options
+Then, call the given code with the following arguments:
 
- - -q: Quiet mode, no output will be produced except for the output file
- - -i: Invariant synthesis, will lead to output containing SAS+ variables
- - -2: Compute H2 mutexes, will compute H2 mutexes and output them
- - -a: For SAS+ variables, add all deletes to actions, not just the necessary ones
- - -n: For SAS+ variables, output no deletes effects
- - -S: Force SAS+ output for every variable
- - -N: Compile binary SAS+variables if possible, may lead to more action in the output but reduces the number of facts
- - -g: Only ground, don't write the grounded instance
- - -l: No literal pruning, do not remove irrelevant facts
- - -e: No abstract expansion, do not expand abstract tasks with only one applicable method
- - -m: No method precondition pruning, do not remove method precondition actions, that carry neither preconditions nor effects (due to literal pruning)
- - -h: Disable hiearchy typing. This will not change the grounding, but will only make the grounding slower on some domains (especially Minecraft)
- - -f: Enable future precondition caching. This will not change the grounding, but is a technique to try to make the GPG faster
- - -D: Remove duplicat actions. This does only apply to artificial primitive tasks (the ones inserted for method preconditions or other compilations) currently
- - -E: No empty methods. Adds a zero-cost no-op to empty methods. The pandaPIengine's progression planner needs this property
+```
+lmgen -q -2iDE temp.parsed
+```
 
-Don't use the command line option ``-in``, as gengetopt will missinterpret it.
+The generator will write a file called ```LMs.txt``` containing the landmarks.
