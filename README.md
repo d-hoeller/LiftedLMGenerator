@@ -1,4 +1,4 @@
-# FAM-based LMs For Lifted  Classical Planning
+# FAM-based LMs for Lifted  Classical Planning
 This is the code to generate FAM-based landmarks based on a lifted classical planning model.
 
 The code is based on the execution stack of pandaPI. The LM generation code in this directory is based on the pandaPI's grounder (though we do not ground).
