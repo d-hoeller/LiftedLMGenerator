@@ -12,72 +12,22 @@
 
 bool printIntermediateLMSets = false;
 bool printDTGs = false;
+extern bool printDebugInformation;
 
 FamCutLmFactory::FamCutLmFactory(Domain d, Problem p, vector<FAMGroup> fg) : LmFactory(d, p) {
     this->famGroups = fg;
 
-    for (int j = 0; j < famGroups.size(); j++) {
-        printFamGroup(j);
+    if (printDebugInformation) {
+        for (int j = 0; j < famGroups.size(); j++) {
+            printFamGroup(j);
+        }
     }
-    //
-    // create inverse mappings
-    //
-//    for (int i = 0; i < domain.tasks.size(); i++) {
-//        for (int j = 0; j < domain.tasks[i].effectsAdd.size(); j++) {
-//            int p = domain.tasks[i].effectsAdd[j].predicateNo;
-//            AddEff* ae = new AddEff;
-//            ae->action = i;
-//            ae->add = j;
-//            this->addEff2Action[p].insert(ae);
-//        }
-//    }
 
     getFamModifiers(fg);
-    printModifiers(fg);
-//    exit(0);
-
-/*
-    ofstream dotfile;
-    dotfile.open ("cg.dot");
-    dotfile << "digraph {\n";
-    for (int i = 0 ; i < famGroups.size(); i++) {
-        dotfile << "   n" << i << " [label=\"FAM" << i << "\"]\n";;
+    if (printDebugInformation) {
+        printModifiers(fg);
     }
 
-    set<int> effs[domain.tasks.size()];
-    for (int iFAM = 0; iFAM < famGroups.size(); iFAM++) {
-        for (auto m: modifier[iFAM]) {
-            int a = m->action;
-            effs[a].insert(iFAM);
-        }
-    }
-    for (int iTask = 0; iTask < d.tasks.size(); iTask++) {
-        auto task = d.tasks[iTask];
-        for (int iPrec = 0; iPrec < task.preconditions.size(); iPrec++) {
-            auto prec = task.preconditions[iPrec];
-            for (int precFAM = 0; precFAM < famGroups.size(); precFAM++) {
-                if (isCompatible(domain, iTask,prec,famGroups[precFAM])) {
-                    for (int effFAM : effs[iTask]) {
-                        dotfile << "   n" << precFAM << " -> n" << effFAM << " [label=\"";
-                        dotfile << domain.tasks[iTask].name << "\"]\n";
-                    }
-                }
-            }
-        }
-        for (int eff1FAM : effs[iTask]) {
-            for (int eff2FAM : effs[iTask]) {
-                if (eff1FAM != eff2FAM) {
-                    dotfile << "   n" << eff1FAM << " -> n" << eff2FAM << " [label=\"";
-                    dotfile << domain.tasks[iTask].name << "\"]\n";
-                }
-            }
-        }
-
-    }
-    dotfile << "}\n";
-    dotfile.close();
-    //system("xdot cg.dot");
-*/
     //
     // calculate static predicates
     //
@@ -91,9 +41,11 @@ FamCutLmFactory::FamCutLmFactory(Domain d, Problem p, vector<FAMGroup> fg) : LmF
         }
     }
     if (!invariant.empty()) {
-        cout << "The following predicates are static:" << endl;
-        for (int pred: invariant) {
-            cout << "- " << domain.predicates[pred].name << endl;
+        if (printDebugInformation) {
+            cout << "The following predicates are static:" << endl;
+            for (int pred: invariant) {
+                cout << "- " << domain.predicates[pred].name << endl;
+            }
         }
 
         // add indices of static precs to relevant actions, these will be checked when constructing the graph
@@ -109,22 +61,34 @@ FamCutLmFactory::FamCutLmFactory(Domain d, Problem p, vector<FAMGroup> fg) : LmF
             }
         }
     } else {
-        cout << "No static predicates detected." << endl;
+        printDebug("No static predicates detected.");
+    }
+}
+
+void FamCutLmFactory::printDebug(string s) {
+    if (printDebugInformation) {
+        cout << s << endl;
+    }
+}
+
+void FamCutLmFactory::printDebugNLB(std::string s) {
+    if (printDebugInformation) {
+        cout << s;
     }
 }
 
 void FamCutLmFactory::getFamModifiers(vector<FAMGroup> &fg) {
     this->modifier = new vector<FAMmodifier *>[fg.size()];
     for (int iFAM = 0; iFAM < fg.size(); iFAM++) {
-        cout << "- FAM " << iFAM << endl;
+        printDebug("- FAM " + to_string(iFAM));
         for (int iTask = 0; iTask < domain.tasks.size(); iTask++) {
             auto task = domain.tasks[iTask];
-            cout << "  - Action " << iTask << " " << task.name << endl;
+            printDebug("  - Action " + to_string(iTask) + " " + task.name);
             for (int iPrec = 0; iPrec < task.preconditions.size(); iPrec++) {
-                cout << "    - Prec " << iPrec << " " << domain.predicates[task.preconditions[iPrec].predicateNo].name << endl;
+                printDebug("    - Prec " + to_string(iPrec) + " " + domain.predicates[task.preconditions[iPrec].predicateNo].name);
                 for (int famLit = 0; famLit < fg[iFAM].literals.size(); famLit++) {
                     if (isCompatible(domain, iTask, task.preconditions[iPrec], fg[iFAM], famLit)) {
-                        cout << "      - compatible with lit " << famLit << endl;
+                        printDebug("      - compatible with lit " + to_string(famLit));
                         FAMmodifier *mod = new FAMmodifier();
                         auto prec = task.preconditions[iPrec];
                         for (int i = 0; i < prec.arguments.size(); i++) {
@@ -133,7 +97,7 @@ void FamCutLmFactory::getFamModifiers(vector<FAMGroup> &fg) {
                                 if (!famGroups[iFAM].vars[iFamVar].isCounted) { // this is a free variable
                                     mod->freeActionVars.insert(prec.arguments[i]);
                                 }
-                            } // todo: do I have to do something here?
+                            }
                         }
 
                         int delEffect = -1;
@@ -153,7 +117,7 @@ void FamCutLmFactory::getFamModifiers(vector<FAMGroup> &fg) {
                             }
                         }
                         if (delEffect < 0) {
-                            cout << "      - no del found" << endl;
+                            printDebug("      - no del found");
                             continue;
                         }
 
@@ -164,7 +128,7 @@ void FamCutLmFactory::getFamModifiers(vector<FAMGroup> &fg) {
                                 if (!isCompatible(domain, iTask, add, fg[iFAM], addLit)) {
                                     continue;
                                 }
-                                cout << "      - add " << i << " compatible." << endl;
+                                printDebug("      - add " + to_string(i) + " compatible.");
                                 // check for free variables
                                 bool isIncompatible = false;
                                 for (int j = 0; j < fg[iFAM].literals[addLit].args.size(); j++) {
@@ -175,14 +139,13 @@ void FamCutLmFactory::getFamModifiers(vector<FAMGroup> &fg) {
                                     auto famVar = fg[iFAM].vars[famVarIndex];
                                     const bool actionVarIsCounted = (mod->freeActionVars.find(add.arguments[j]) == mod->freeActionVars.end());
                                     if (famVar.isCounted != actionVarIsCounted) {
-                                        cout << "      - add " << i << " discarded due to counted vars." << endl;
-                                        cout << "        - var " << j;
+                                        printDebug("      - add " + to_string(i) + " discarded due to counted vars.");
+                                        printDebugNLB("        - var " + to_string(j));
                                         if (famVar.isCounted) {
-                                            cout << " is counted";
+                                            printDebug(" is counted");
                                         } else {
-                                            cout << " is not counted";
+                                            printDebug(" is not counted");
                                         }
-                                        cout << endl;
                                         isIncompatible = true;
                                         break;
                                     }
@@ -192,7 +155,7 @@ void FamCutLmFactory::getFamModifiers(vector<FAMGroup> &fg) {
                                 }
                             }
                         }
-                        cout << "      - adds found: " << adds.size() << endl;
+                        printDebug("      - adds found: " + to_string(adds.size()));
                         if (adds.size() == 1) {
                             mod->action = iTask;
                             mod->prec = iPrec;
@@ -201,7 +164,7 @@ void FamCutLmFactory::getFamModifiers(vector<FAMGroup> &fg) {
                             mod->add = adds[0].first;
                             modifier[iFAM].push_back(mod);
                         } else if (adds.size() > 1) {
-                            cout << "ERROR: Relevant sizes do not match." << endl;
+                            printDebug("ERROR: Relevant sizes do not match.");
                             exit(-1);
                         }
                     }
@@ -311,11 +274,10 @@ void FamCutLmFactory::generateLMs() {
     for (int id: todo) {
         lmDispatcher(lmg, id);
     }
-//    lmg->showDot(domain, true);
-    cout << "- [numLMs=" << (lmg->N.size() - 1) << "]\n";
+    cout << "- Found " << (lmg->N.size() - 1) <<" landmarks [numLMs=" << (lmg->N.size() - 1) << "]\n";
     lmg->prune(0, invariant);
     lmg->showDot(domain, false);
-    cout << "- [numPrunedLMs=" << (lmg->N.size() - 1) << "]\n";
+    cout << "- Left after pruning: " << (lmg->N.size() - 1) <<" [numPrunedLMs=" << (lmg->N.size() - 1) << "]\n";
     lmg->writeToFile("LMs.txt", domain);
 }
 
@@ -372,33 +334,22 @@ void FamCutLmFactory::lmDispatcher(LandmarkGraph* lmg, int nodeID) {
                 if (iFamGroup >= 0) {
                     subgraph = generateLMs(n, iFamGroup);
                 } else { // this is a LM not contained in a FAM-Group
-                    //subgraph = generateAchieverNodes(n);
                     cout << "- LM not contained in a FAM-Group, generating action nodes" << endl;
                     subgraph = generateActionNodes(n);
                 }
-//                lmg->showDot(domain, true);
                 vector<int> *newIDs = lmg->merge(node->nodeID, subgraph, 0); // todo: which type?
-//                lmg->showDot(domain, true);
-//                exit(-1);
                 for (int n: *newIDs) {
                     lmDispatcher(lmg, n);
                 }
-//                delete newIDs;
             }
         } else { // this is an action landmark
             LandmarkGraph *subgraph = generatePrecNodes(*node->lm.begin());
-            //subgraph->showDot(domain, true);
-//            lmg->showDot(domain, true);
             vector<int> *newIDs = lmg->merge(node->nodeID, subgraph, 0); // todo: which type?
-//            lmg->showDot(domain, true);
             for (int n : *newIDs) {
                 lmDispatcher(lmg, n);
             }
-//            cout << "What to do?" << endl;
-//            exit(13);
         }
     } else { // is an OR landmark
-//        lmg->showDot(domain);
         if (node->isFactLM) {
            cerr << "WARNING: Unimplemented feature \"fact or landmark\": " << endl;
            for (auto n: node->lm) {
@@ -418,16 +369,17 @@ void FamCutLmFactory::lmDispatcher(LandmarkGraph* lmg, int nodeID) {
 }
 
 LandmarkGraph *FamCutLmFactory::generatePrecNodes(PINode *actionNode) {
-    cout << "- generating precondition nodes for action LM \"";
-    actionNode->printAction(domain);
-    cout << "\"" << endl;
+    if (printDebugInformation) {
+        cout << "- generating precondition nodes for action LM \"";
+        actionNode->printAction(domain);
+        cout << "\"" << endl;
+    }
 
     LandmarkGraph *res = new LandmarkGraph();
     PINode* piAction = actionNode;
     auto action = domain.tasks[piAction->schemaIndex];
     for (auto prec: action.preconditions) {
         PINode* precNode = new PINode();
-//        cout << domain.predicates[prec.predicateNo].name << endl;
         precNode->schemaIndex = prec.predicateNo;
         for (int i = 0; i < prec.arguments.size(); i++) {
             const int var = prec.arguments[i];
@@ -435,22 +387,22 @@ LandmarkGraph *FamCutLmFactory::generatePrecNodes(PINode *actionNode) {
         }
         res->addNode(new Landmark(precNode, FactAND));
     }
-//    cout << "Prec-Size: " << action.preconditions.size() << " : " << res->N.size() << endl;
-//    res->showDot(domain);
     return res;
 }
 
 
 LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
-    cout << "- generating DTG for LM \"";
-    node->printFact(domain, cout);
-    cout << "\"" << endl;
+    if (printDebugInformation) {
+        cout << "- generating DTG for LM \"";
+        node->printFact(domain, cout);
+        cout << "\"" << endl;
+    }
 
     FAMGroup fam = famGroups[iFamGroup];
 
     // need to store the free variables set by the goal fact
     vector<int> setFreeVars;
-    for (int i = 0; i < fam.vars.size(); i++) setFreeVars.push_back(-1); // todo: replace -1
+    for (int i = 0; i < fam.vars.size(); i++) setFreeVars.push_back(-1);
     for (int iLit = 0; iLit < fam.literals.size(); iLit++) {
         if (fam.literals[iLit].predicateNo == node->schemaIndex) {
             for (int iLitArg = 0; iLitArg < fam.literals[iLit].args.size(); iLitArg++) {
@@ -461,14 +413,6 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
             }
         }
     }
-//    cout << "Have to check:";
-//    for(int i = 0; i <  setFreeVars.size(); i++) {
-//        int x = setFreeVars[i];
-//        if(x >= 0)
-//        cout << " " << i << "=" << domain.constants[x];
-//    }
-//    cout << endl;
-
 
     // do two things:
     // - convert initial state to a data structure supporting a contains test
@@ -479,7 +423,6 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
         return new LandmarkGraph();
     }
 
-//    unordered_set<PINode *, PINodeHasher, PINodeComparator> N;
     PIGraph graph;
     auto *N_last = new vector<PINode *>;
     auto *N_this = new vector<PINode *>;
@@ -491,9 +434,11 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
     int varID = -1;
     while (!N_last->empty()) {
         for (auto n: *N_last) {
-            cout << "  - generating successors for \"";
-            n->printFact(domain, cout);
-            cout << "\"" << endl;
+            if (printDebugInformation) {
+                cout << "  - generating successors for \"";
+                n->printFact(domain, cout);
+                cout << "\"" << endl;
+            }
 
             // need actions where
             // - precondition is n
@@ -505,7 +450,7 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
                     int numVars = domain.tasks[a].variableSorts.size();
                     PINode *partInstAction = new PINode;
                     for (int i = 0; i < numVars; i++) {
-                        partInstAction->consts.push_back(varID--); // todo: here is a -1
+                        partInstAction->consts.push_back(varID--);
                     }
                     partInstAction->schemaIndex = a;
                     // determine bindings by precondition belonging to FAM group
@@ -514,9 +459,11 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
                         const int val = n->consts[iPrec];
                         partInstAction->consts[var] = val;
                     }
-                    cout << "    - arc introduced by action \"";
-                    partInstAction->printAction(domain);
-                    cout << "\"" << endl;
+                    if (printDebugInformation) {
+                        cout << "    - arc introduced by action \"";
+                        partInstAction->printAction(domain);
+                        cout << "\"" << endl;
+                    }
                     // determine bindings by static precondition
                     bool incompatible = false;
                     for (int inv: arc->staticPrecs) {
@@ -527,13 +474,15 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
                             int var = precSchema.arguments[i];
                             partInstPrec->consts.push_back(partInstAction->consts[var]);
                         }
-                        cout << "      - analyzing static prec \"";
-                        partInstPrec->printFact(domain, cout);
-                        cout << "\": ";
+                        if (printDebugInformation) {
+                            cout << "      - analyzing static prec \"";
+                            partInstPrec->printFact(domain, cout);
+                            cout << "\": ";
+                        }
 
                         vector<Fact>* s0d = gets0Def(partInstPrec);
                         if (s0d->empty()) {
-                            cout << "unfulfilled -> no new arc." << endl;
+                            printDebug("unfulfilled -> no new arc.");
                             incompatible = true;
                             break;
                         } else if (s0d->size() == 1) {
@@ -541,24 +490,21 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
                                 const int obj = s0d->at(0).arguments[l];
                                 const int var = precSchema.arguments[l];
                                 if (partInstAction->consts[var] < 0) {
-                                    cout << "setting param " << var << " to \"" << domain.constants[obj] << "\" -> \"";
+                                    printDebugNLB("setting param " + to_string(var) + " to \"" + domain.constants[obj] + "\" -> \"");
                                     partInstAction->consts[var] = obj;
                                     partInstAction->printAction(domain);
-                                    cout << "\"." << endl;
+                                    printDebug("\".");
                                 } else if (partInstAction->consts[var] != obj) {
-                                    cout << "unfulfilled -> no new arc" << endl;
+                                    printDebug("unfulfilled -> no new arc");
                                     incompatible = true;
                                     break;
                                 } else {
-                                    cout << "fine." << endl;
+                                    printDebug("fine.");
                                 }
                             }
                         } else {
-                            cout << "found " << s0d->size() << " compatible atoms in s0." << endl;
+                            printDebug("found " + to_string(s0d->size()) + " compatible atoms in s0.");
                         }
-//                        StaticS0Def* s0Def = getStaticS0Def(precSchema.predicateNo);
-//                        sortS0Def(partInstPrec, s0Def);
-//                        for ()
                     }
                     if (incompatible) {
                         continue;
@@ -592,7 +538,6 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
                                     copy->consts[var] = obj;
                                     actionsToGround2->push_back(copy);
                                 }
-                                //delete action;
                             }
                             actionsToGround->clear();
                             vector<PINode *> *temp = actionsToGround2;
@@ -624,19 +569,23 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
                                 int from = partInstEffect->consts[i];
                                 int to = (*iter)->consts[i];
                                 if ((from < 0) && (from != to)) {
-                                    cout << "      - need to adapt bindings" << endl << "        ";
-                                    partInstEffect->printFact(domain, cout);
-                                    cout << endl << "         and "<< endl << "        ";
-                                    (*iter)->printFact(domain, cout);
-                                    cout << endl;
+                                    if (printDebugInformation) {
+                                        cout << "      - need to adapt bindings" << endl << "        ";
+                                        partInstEffect->printFact(domain, cout);
+                                        cout << endl << "         and " << endl << "        ";
+                                        (*iter)->printFact(domain, cout);
+                                        cout << endl;
+                                    }
                                     graph.replaceWildcard(from, to);
                                 }
                             }
                         }
 
-                        cout << "    - target node is \"";
-                        partInstEffect->printFact(domain, cout);
-                        cout << "\"" << endl;
+                        if (printDebugInformation) {
+                            cout << "    - target node is \"";
+                            partInstEffect->printFact(domain, cout);
+                            cout << "\"" << endl;
+                        }
                     }
                 }
             }
@@ -651,17 +600,8 @@ LandmarkGraph *FamCutLmFactory::generateLMs(PINode* node, int iFamGroup) {
     if (printDTGs) {
         graph.showDot(domain);
     }
-//    LandmarkGraph *gNew = generateNodeLMs(graph, node, s0Node->nodeID);
     LandmarkGraph *gNew = generateCutLMs(graph, node, s0Node->nodeID);
-//    gNew->showDot(domain, true);
     return gNew;
-
-//    if (this->nodeBasedLMs) {
-//        generateNodeLMs(graph, node, s0Node->nodeID);
-//    }
-//    if (this->cutBasedLMs) {
-//        generateCutLMs(graph, node, s0Node->nodeID);
-//    }
 }
 
 LandmarkGraph* FamCutLmFactory::generateNodeLMs(PIGraph &dtg, PINode *targetNode, int initialNodeID) {
@@ -702,7 +642,7 @@ LandmarkGraph* FamCutLmFactory::generateNodeLMs(PIGraph &dtg, PINode *targetNode
 }
 
 LandmarkGraph* FamCutLmFactory::generateCutLMs(PIGraph &dtg, PINode *targetNode, int initialNodeID) {
-    cout << "- generating FAM action cut LMs" << endl;
+    printDebug("- generating FAM action cut LMs");
 
     LandmarkGraph* result = new LandmarkGraph();
     set<int> from;
@@ -710,22 +650,30 @@ LandmarkGraph* FamCutLmFactory::generateCutLMs(PIGraph &dtg, PINode *targetNode,
     set<int> goalZone;
     set<int> newGoalZone;
     map<int, int> binding;
-    cout << "  - searching for ";
-    targetNode->printFact(domain, cout);
-    cout << endl;
+    if (printDebugInformation) {
+        cout << "  - searching for ";
+        targetNode->printFact(domain, cout);
+        cout << endl;
+    }
     for (PINode *n: dtg.N) {
         if (n->abstractionOf(targetNode)) {
             goalZone.insert(n->nodeID);
-            cout << "    - found ";
-            n->printFact(domain, cout);
-            cout << endl;
+            if (printDebugInformation) {
+                cout << "    - found ";
+                n->printFact(domain, cout);
+                cout << endl;
+            }
             for (int i = 0; i < targetNode->consts.size(); i++) { // target node might be more specific
                 if (targetNode->consts[i] != n->consts[i]) {
                     binding[n->consts[i]] = targetNode->consts[i];
-                    if (targetNode->consts[i] >= 0) {
-                        cout << "      - mapping ?" << (-1 * n->consts[i]) << " to " << domain.constants[targetNode->consts[i]] << endl;
-                    } else {
-                        cout << "      - mapping ?" << (-1 * n->consts[i]) << " to ?" << (-1 * targetNode->consts[i]) << endl;
+                    if (printDebugInformation) {
+                        if (targetNode->consts[i] >= 0) {
+                            cout << "      - mapping ?" << (-1 * n->consts[i]) << " to "
+                                 << domain.constants[targetNode->consts[i]] << endl;
+                        } else {
+                            cout << "      - mapping ?" << (-1 * n->consts[i]) << " to ?"
+                                 << (-1 * targetNode->consts[i]) << endl;
+                        }
                     }
                 }
             }
@@ -736,23 +684,22 @@ LandmarkGraph* FamCutLmFactory::generateCutLMs(PIGraph &dtg, PINode *targetNode,
         cerr << "Target node: ";
         targetNode->printFact(domain, cerr);
         cerr << endl;
-//        dtg.showDot(domain);
         cerr << "ERROR: goal zone is empty" << endl;
         exit(-1);
     }
     bool goalReached = false;
     int lastCut = -1;
     while (!goalReached) {
-        cout << "    - new cut, nodes in goal zone" << endl;
+        printDebug("    - new cut, nodes in goal zone");
         Landmark* cut = new Landmark(ActionOR);
-        //unordered_set<PINode*, PINodeHasher, PINodeComparator> cut;
         newGoalZone.insert(goalZone.begin(), goalZone.end());
-        //cout << "- nodes in goal zone: " << goalZone.size() << endl;
         for (auto n: goalZone) {
-            cout << "      - ";
-            dtg.getNode(n)->printFact(domain, cout);
+            if (printDebugInformation) {
+                cout << "      - ";
+                dtg.getNode(n)->printFact(domain, cout);
+            }
             auto temp = dtg.predecessors.find(n);
-            cout << " incoming arcs: " << temp->second.size() << endl;
+            printDebug(" incoming arcs: " + to_string(temp->second.size()));
             if (temp != dtg.predecessors.end()) {
                 unordered_map<int, unordered_set<PIArc*>> arcs = temp->second;
                 for (auto arc : arcs) {
@@ -763,7 +710,6 @@ LandmarkGraph* FamCutLmFactory::generateCutLMs(PIGraph &dtg, PINode *targetNode,
                             auto temp = new PINode(a->ArcLabel);
                             for (int i = 0; i < temp->consts.size(); i++) {
                                 if (binding.find(temp->consts[i]) != binding.end()) {
-//                                    cout << " blub " << temp->consts[i] << " -> " << binding[temp->consts[i]] << endl;
                                     temp->consts[i] = binding[temp->consts[i]];
                                 }
                             }
@@ -778,11 +724,13 @@ LandmarkGraph* FamCutLmFactory::generateCutLMs(PIGraph &dtg, PINode *targetNode,
         }
         assert(cut->lm.size() > 0);
 
-        cout << "    - actions in cut" << endl;
-        for (auto a: cut->lm) {
-            cout << "      - ";
-            a->printAction(domain);
-            cout << endl;
+        if (printDebugInformation) {
+            cout << "    - actions in cut" << endl;
+            for (auto a: cut->lm) {
+                cout << "      - ";
+                a->printAction(domain);
+                cout << endl;
+            }
         }
 
         if (cut->lm.size() > 1) {
@@ -794,27 +742,31 @@ LandmarkGraph* FamCutLmFactory::generateCutLMs(PIGraph &dtg, PINode *targetNode,
                     }
                 }
             }
-            cout << "  - cut: ";
-            for (PINode* n : cut->lm) {
-                n->printAction(domain);
-                cout << " ";
-            }
-            cout << endl;
-            if (!needToDelete.empty()) {
-                cout << "  - pruning cut, deleting ";
-                for (PINode *n: needToDelete) {
-                    cout << "\"";
+            if (printDebugInformation) {
+                cout << "  - cut: ";
+                for (PINode *n: cut->lm) {
                     n->printAction(domain);
-                    cout << "\"";
-                    cut->lm.erase(n);
+                    cout << " ";
                 }
                 cout << endl;
+            }
+            if (!needToDelete.empty()) {
+                printDebugNLB("  - pruning cut, deleting ");
+                for (PINode *n: needToDelete) {
+                    if (printDebugInformation) {
+                        cout << "\"";
+                        n->printAction(domain);
+                        cout << "\"";
+                    }
+                    cut->lm.erase(n);
+                }
+                printDebug("");
             }
         }
 
         result->addNode(cut);
         if (lastCut >= 0) {
-            result->addArc(cut->nodeID, lastCut, 0); // todo: which type?
+            result->addArc(cut->nodeID, lastCut, 0);
         }
         lastCut = cut->nodeID;
         auto temp = goalZone;
@@ -822,7 +774,6 @@ LandmarkGraph* FamCutLmFactory::generateCutLMs(PIGraph &dtg, PINode *targetNode,
         newGoalZone = temp;
         newGoalZone.clear();
     }
-//    result->showDot(domain, true);
     return result;
 }
 
@@ -851,9 +802,11 @@ PINode * FamCutLmFactory::getInitNode(FAMGroup &fam, vector<int> &setFreeVars) {
                     }
                 }
                 if (sameFAM) {
-                    cout << "  - starting value is \"";
-                    n->printFact(domain, cout);
-                    cout << "\"" << endl;
+                    if (printDebugInformation) {
+                        cout << "  - starting value is \"";
+                        n->printFact(domain, cout);
+                        cout << "\"" << endl;
+                    }
                     sameFAMNodes.push_back(n);
                 }
             }

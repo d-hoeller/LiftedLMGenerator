@@ -9,83 +9,85 @@
 #include "FAMmutexes.h"
 #include "conditional_effects.h"
 #include "duplicate.h"
-//#include "LDTG.h"
 #include "FamCutLmFactory.h"
-//#include "CG.h"
 #include <chrono>
 
 using namespace std;
+
+bool printDebugInformation = false;
 
 void run_grounding (const Domain & domain, const Problem & problem, std::ostream & dout, std::ostream & pout, grounding_configuration & config){
 
   	std::vector<FAMGroup> famGroups;
 	if (config.computeInvariants) {
-        for (int i = 0; i < domain.tasks.size(); i++) {
-            cout << "(" << domain.tasks[i].name;
-            for (int j = 0; j < domain.tasks[i].variableSorts.size(); j++) {
-                int s = domain.tasks[i].variableSorts[j];
-                cout << " v" << j << " - " << domain.sorts[s].name;
-            }
-            cout << ")" << endl << ":preconditions" << endl;
-            for (int j = 0; j < domain.tasks[i].preconditions.size(); j++) {
-                int p = domain.tasks[i].preconditions[j].predicateNo;
-                cout << "   (" << domain.predicates[p].name;
-                for (int k = 0; k < domain.tasks[i].preconditions[j].arguments.size(); k++) {
-                    cout << " v" <<  domain.tasks[i].preconditions[j].arguments[k];
+        if (printDebugInformation) {
+            for (int i = 0; i < domain.tasks.size(); i++) {
+                cout << "(" << domain.tasks[i].name;
+                for (int j = 0; j < domain.tasks[i].variableSorts.size(); j++) {
+                    int s = domain.tasks[i].variableSorts[j];
+                    cout << " v" << j << " - " << domain.sorts[s].name;
                 }
-                cout << ")" << endl;
-            }
-            cout << ":effects" << endl;
-            for (int j = 0; j < domain.tasks[i].effectsAdd.size(); j++) {
-                int p = domain.tasks[i].effectsAdd[j].predicateNo;
-                cout << "   (" << domain.predicates[p].name;
-                for (int k = 0; k < domain.tasks[i].effectsAdd[j].arguments.size(); k++) {
-                    cout << " v" <<  domain.tasks[i].effectsAdd[j].arguments[k];
+                cout << ")" << endl << ":preconditions" << endl;
+                for (int j = 0; j < domain.tasks[i].preconditions.size(); j++) {
+                    int p = domain.tasks[i].preconditions[j].predicateNo;
+                    cout << "   (" << domain.predicates[p].name;
+                    for (int k = 0; k < domain.tasks[i].preconditions[j].arguments.size(); k++) {
+                        cout << " v" << domain.tasks[i].preconditions[j].arguments[k];
+                    }
+                    cout << ")" << endl;
                 }
-                cout << ")" << endl;
-            }
-            for (int j = 0; j < domain.tasks[i].effectsDel.size(); j++) {
-                int p = domain.tasks[i].effectsDel[j].predicateNo;
-                cout << "   (not (" << domain.predicates[p].name;
-                for (int k = 0; k < domain.tasks[i].effectsDel[j].arguments.size(); k++) {
-                    cout << " v" <<  domain.tasks[i].effectsDel[j].arguments[k];
+                cout << ":effects" << endl;
+                for (int j = 0; j < domain.tasks[i].effectsAdd.size(); j++) {
+                    int p = domain.tasks[i].effectsAdd[j].predicateNo;
+                    cout << "   (" << domain.predicates[p].name;
+                    for (int k = 0; k < domain.tasks[i].effectsAdd[j].arguments.size(); k++) {
+                        cout << " v" << domain.tasks[i].effectsAdd[j].arguments[k];
+                    }
+                    cout << ")" << endl;
                 }
-                cout << "))" << endl;
+                for (int j = 0; j < domain.tasks[i].effectsDel.size(); j++) {
+                    int p = domain.tasks[i].effectsDel[j].predicateNo;
+                    cout << "   (not (" << domain.predicates[p].name;
+                    for (int k = 0; k < domain.tasks[i].effectsDel[j].arguments.size(); k++) {
+                        cout << " v" << domain.tasks[i].effectsDel[j].arguments[k];
+                    }
+                    cout << "))" << endl;
+                }
+                //cout << "conditional effects " << domain.tasks[i].conditionalAdd.size() << " " << domain.tasks[i].conditionalDel.size() << endl;
+                cout << endl;
             }
-            //cout << "conditional effects " << domain.tasks[i].conditionalAdd.size() << " " << domain.tasks[i].conditionalDel.size() << endl;
-            cout << endl;
-        }
 /*
-        cout << endl << "s0:" << endl;
-        for (int i = 0; i < problem.init.size(); i++) {
-            int pred = problem.init[i].predicateNo;
-            cout << "- (" << domain.predicates[pred].name;
-            for (int j = 0; j < problem.init[i].arguments.size(); j++) {
-                int arg = problem.init[i].arguments[j];
-                cout << " " << domain.constants[arg];
+            cout << endl << "s0:" << endl;
+            for (int i = 0; i < problem.init.size(); i++) {
+                int pred = problem.init[i].predicateNo;
+                cout << "- (" << domain.predicates[pred].name;
+                for (int j = 0; j < problem.init[i].arguments.size(); j++) {
+                    int arg = problem.init[i].arguments[j];
+                    cout << " " << domain.constants[arg];
+                }
+                cout << ")" << endl;
             }
-            cout << ")" << endl;
-        }
 
-        cout << endl << "Goals:" << endl;
-        for (int i = 0; i < problem.goal.size(); i++) {
-            int pred = problem.goal[i].predicateNo;
-            cout << "- (" << domain.predicates[pred].name;
-            for (int j = 0; j < problem.goal[i].arguments.size(); j++) {
-                int arg = problem.goal[i].arguments[j];
-                cout << " " << domain.constants[arg];
+            cout << endl << "Goals:" << endl;
+            for (int i = 0; i < problem.goal.size(); i++) {
+                int pred = problem.goal[i].predicateNo;
+                cout << "- (" << domain.predicates[pred].name;
+                for (int j = 0; j < problem.goal[i].arguments.size(); j++) {
+                    int arg = problem.goal[i].arguments[j];
+                    cout << " " << domain.constants[arg];
+                }
+                cout << ")" << endl;
             }
-            cout << ")" << endl;
-        }
 */
+        }
         famGroups = compute_FAM_mutexes(domain, problem, config);
         FamCutLmFactory *lms = new FamCutLmFactory(domain, problem, famGroups);
         auto start = std::chrono::high_resolution_clock::now();
-        cout << "Generating landmarks" << endl;
+        cout << "Generating landmarks..." << endl;
         lms->generateLMs();
         auto finish = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed = finish - start;
-        std::cout << "- [lmGenTime=" << elapsed.count() << "]\n";
+        std::cout << "- Time needed for generation [lmGenTime=" << elapsed.count() << "]\n";
     }
     exit(0);
 

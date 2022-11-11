@@ -1,7 +1,6 @@
 //
 // Created by dh on 12.12.20.
 //
-// https://de.wikipedia.org/wiki/Max-Flow-Min-Cut-Theorem#Algorithmus_zum_Finden_minimaler_Schnitte
 
 #ifndef SRC_FAMCUTLMFACTORY_H
 #define SRC_FAMCUTLMFACTORY_H
@@ -19,15 +18,6 @@
 #include "LmFactory.h"
 
 using namespace std;
-
-
-//struct candidate {
-//    int prec;
-//    int del;
-//    vector<pair<int,int>> adds;
-//    int famLit;
-//    set<int> freeActionVars;
-//};
 
 struct FAMmodifier {
     int action;
@@ -68,6 +58,9 @@ class FamCutLmFactory : public LmFactory{
     bool smaller(StaticS0Def *A, int i, int *pivot, vector<int> *sortBy);
 
     bool greater(StaticS0Def *A, int i, int *pivot, vector<int> *sortBy);
+
+    void printDebug(string s);
+    void printDebugNLB(string s);
 
 public:
     FamCutLmFactory(Domain domain, Problem problem, vector<FAMGroup> famGroups);
